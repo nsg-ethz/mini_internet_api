@@ -11,6 +11,8 @@ The current startup script allows to easily start a specific mini-Internet
 (called "lab"). Use e.g., `./startup.sh demo` (for an advanced network with many
 features) or `./startup.sh default` to start a simple, default one.
 
+TODO: figure out why NetFlow setup does no longer work
+
 Older documentation is available in the
 [**wiki**](https://github.com/nsg-ethz/mini_internet_project/wiki).
 

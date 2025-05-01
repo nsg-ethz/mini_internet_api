@@ -257,12 +257,13 @@ time ./setup/sflow.sh "${DIRECTORY}"
 echo ""
 echo ""
 
-echo "NetFlow and traffic setup"
-echo "netflow.sh $(($(date +%s%N)/1000000))" >> "${DIRECTORY}"/log.txt
-time ./setup/netflow.sh "${DIRECTORY}"
+# TODO: fix
+# echo "NetFlow and traffic setup"
+# echo "netflow.sh $(($(date +%s%N)/1000000))" >> "${DIRECTORY}"/log.txt
+# time ./setup/netflow.sh "${DIRECTORY}"
 
-echo ""
-echo ""
+# echo ""
+# echo ""
 
 echo "Flowgrind setup"
 echo "flowgrind.sh $(($(date +%s%N)/1000000))" >> "${DIRECTORY}"/log.txt
