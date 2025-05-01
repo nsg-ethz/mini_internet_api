@@ -550,8 +550,8 @@ connect_two_interfaces() {
     local pid2=$(get_container_pid $container2 "False")
 
     # create a symlink to use ip netns
-    create_netns_symlink $pid1
-    create_netns_symlink $pid2
+    create_netns_symlink "$pid1"
+    create_netns_symlink "$pid2"
 
     # create a veth pair
     ip link add $veth_interface1 type veth peer name $veth_interface2
@@ -580,7 +580,86 @@ connect_two_interfaces() {
     ip netns exec $pid2 tc qdisc add dev $interface2 parent 1:1 handle 10: tbf rate \
         "${throughput}" burst $burst latency "${buffer}"
 
-    # reutrn the new pids
+    # return the new pids
+    echo "$pid1 $pid2"
+}
+
+# support for parallel links
+connect_two_interfaces_parallel() {
+
+    if (($UID != 0)); then
+        echo "$0 needs to be run as root"
+        exit 1
+    fi
+
+    if [ "$#" -ne 10 ]; then
+        echo "Usage: connect_two_interfaces_parallel <Container1> <Interface1> <Container2> <Interface2> <Throughput> <Delay> <Buffer> <num> <host_ip> <gw>"
+        exit 1
+    fi
+
+    local container1=${1}
+    local interface1=${2}
+    local container2=${3}
+    local interface2=${4}
+    local throughput=${5}
+    local delay=${6}
+    local buffer=${7}
+    local num_interface=${8}
+    local ip=${9}
+    local gw=${10}
+
+    local burst=$(compute_burstsize $throughput)
+
+    # generate unique veth interface names
+    local identifier="${num_interface}_${container1}_${interface1}_${container2}_${interface2}"
+    local portname=$(create_unique_port_name "${identifier}")
+
+    local veth_interface1="${portname}_a"
+    local veth_interface2="${portname}_b"
+
+    # get the PID of two containers
+    if [ "$(docker inspect -f '{{.State.Running}}' "$container1")" == "false" ]; then
+        docker start "$container1" > /dev/null
+    fi
+    if [ "$(docker inspect -f '{{.State.Running}}' "$container2")" == "false" ]; then
+        docker start "$container2" > /dev/null
+    fi
+    local pid1=$(get_container_pid $container1 "False")
+    local pid2=$(get_container_pid $container2 "False")
+
+    # create a symlink to use ip netns
+    create_netns_symlink "$pid1"
+    create_netns_symlink "$pid2"
+
+    # create a veth pair
+    ip link add $veth_interface1 type veth peer name $veth_interface2
+
+    # set up the interfaces on containers
+    ip link set $veth_interface1 netns $pid1
+    ip netns exec $pid1 ip link set dev $veth_interface1 name $interface1
+    ip netns exec $pid1 ip link set $interface1 up
+
+    ip link set $veth_interface2 netns $pid2
+    ip netns exec $pid2 ip link set dev $veth_interface2 name $interface2
+    ip netns exec $pid2 ip link set $interface2 up
+    ip netns exec $pid2 ip a add $ip dev $interface2
+
+    # configure the thoughput on both interfaces with tc
+
+    # sleep some time to avoid "Failed to find specified qdisc" error
+    sleep 1
+
+    # 1
+    ip netns exec $pid1 tc qdisc add dev $interface1 root handle 1:0 netem delay $delay
+    ip netns exec $pid1 tc qdisc add dev $interface1 parent 1:1 handle 10: tbf rate \
+        "${throughput}" burst $burst latency "${buffer}"
+
+    # 2
+    ip netns exec $pid2 tc qdisc add dev $interface2 root handle 1:0 netem delay $delay
+    ip netns exec $pid2 tc qdisc add dev $interface2 parent 1:1 handle 10: tbf rate \
+        "${throughput}" burst $burst latency "${buffer}"
+
+    # return the new pids
     echo "$pid1 $pid2"
 }
 
@@ -633,8 +712,8 @@ connect_service_interfaces() {
     local pid_client=$(get_container_pid $client_container "False")
 
     # create a symlink to use ip netns
-    create_netns_symlink $pid_service
-    create_netns_symlink $pid_client
+    create_netns_symlink "$pid_service"
+    create_netns_symlink "$pid_client"
 
     # create a veth pair
     ip link add $veth_service type veth peer name $veth_client
@@ -858,11 +937,11 @@ connect_one_l2_host() {
         # configure port on the switch container
         # if the link is reconnected, the port is still there, so add a duplicate port will not take effect
         docker exec -d "${SwitchCtnName}" ovs-vsctl add-port br0 "${SwitchInterface}"
-
-
-        # return the host and switch interface names and pids
-        echo "$HostInterface $HostPID $SwitchInterface $SwitchPID"
     fi
+
+    # return the host and switch interface names and pids
+    echo "$HostInterface $HostPID $SwitchInterface $SwitchPID"
+
 }
 
 # connect a L2 gateway to the switch and configure the throughput and delay

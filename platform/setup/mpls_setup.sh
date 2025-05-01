@@ -1,8 +1,4 @@
 #!/bin/bash
-#
-# create links between routers inside the AS
-# links defined in ./config/internal_links_config.txt
-# ip subnets defined in ./config/subnet_config.sh
 
 set -o errexit
 set -o pipefail

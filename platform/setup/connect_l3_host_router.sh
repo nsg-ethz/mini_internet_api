@@ -117,16 +117,28 @@ for ((k = 0; k < GroupNumber; k++)); do
                         # set default ip address and default gw in host
                         if [ "$GroupHasConfig" == "Config" ]; then
                             # this configuration can only be done after the interface is set up!
-
                             RouterSubnet="$(subnet_host_router "${GroupAS}" "${i}" "router")"
                             HostSubnet="$(subnet_host_router "${GroupAS}" "${i}" "host")"
 
                             # add the interface address and the default gateway on the host
                             ip netns exec $HostPID ip addr add $HostSubnet dev $HostInterface
                             ip netns exec $HostPID ip route add default via ${RouterSubnet%/*}
-
                         fi
                     fi
+
+                    # add additional host connections to generate more diverse traffic
+                    if (( ${#RouterI[@]} > 4 )) && [[ "${RouterI[4]}" =~ ^[0-9]+$ ]]; then
+                        num_hosts="${RouterI[4]}"
+                        for ((j=1;j<=num_hosts;j++)); do
+                            subnet_router="$(subnet_host_router_add "${GroupAS}" "${i}" "router" "${j}")"
+                            subnet_host="$(subnet_host_router_add "${GroupAS}" "${i}" "host" "${j}")"
+
+                            read -r pid1 pid2 < <(connect_two_interfaces_parallel "${GroupAS}"_"${RouterRegion}"router host"${j}" \
+                            "${GroupAS}"_"${RouterRegion}"host "${RouterRegion}"router"${j}" "100000" "5ms" "50ms" "${j}" \
+                            "${subnet_host}" "${subnet_router%/*}")
+                        done
+                    fi     
+
                 ) & # only one link in each process
                 wait_if_n_tasks_are_running
             done

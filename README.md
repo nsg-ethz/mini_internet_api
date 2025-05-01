@@ -11,7 +11,7 @@ containers using e.g.: `./docker_images/build.sh`
 
 The current startup script allows to easily start a specific mini-Internet
 (called "lab"). Use e.g., `./startup.sh demo` (for an advanced network with many
-demo features) or `./startup.sh original` to start the default one.
+demo features) or `./startup.sh default` to start the default one.
 
 ### The mini-Internet project
 
