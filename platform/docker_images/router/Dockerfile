@@ -24,8 +24,10 @@ RUN install -m 755 -o frr -g frr -d /var/log/frr \
     && install -m 640 -o frr -g frr /dev/null /etc/frr/nhrpd.conf \
     && install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
+# newest commit crashes
 RUN git clone https://github.com/sflow/host-sflow.git
 RUN cd host-sflow \
+    && git checkout 86b4a70ed4ee6d11239731369478d67fef811375 \
     && make all install FEATURES="PCAP NFLOG PSAMPLE"
 
 EXPOSE 22

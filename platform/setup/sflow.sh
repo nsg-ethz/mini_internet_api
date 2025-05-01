@@ -56,7 +56,7 @@ for ((k=0;k<group_numbers;k++)); do
                 sampling.10G = 10\n
                 sampling.40G = 10\n
                 collector { ip="$main_ip" udpport=6343 }\n
-                psample { group=1 }
+                psample { group=1 }\n
                 agent = host\n
             }\n
             "
