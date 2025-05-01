@@ -290,7 +290,6 @@ for ((k = 0; k < group_numbers; k++)); do
                         "${additional_args[@]}" \
                         --network="${ssh_to_ctn_bname}" --ip="${subnet_ssh_host%/*}" \
                         $dname > /dev/null
-                    # add this for bgpsimple -v ${DIRECTORY}/docker_images/host/bgpsimple.pl:/home/bgpsimple.pl \
 
                     # rename eth0 interface to ssh in the host container
                     docker exec "${container_name}" ip link set dev eth0 down

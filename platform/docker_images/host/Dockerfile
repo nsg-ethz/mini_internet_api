@@ -1,9 +1,5 @@
 FROM d_base:latest
 
-# Install cpanminus for bgpsimple
-# cpanminus and build-essential needed for this
-# RUN cpanm Net::BGP
-
 RUN apk add --no-cache openssh-server \
     && ssh-keygen -A \
     && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config \

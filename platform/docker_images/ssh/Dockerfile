@@ -2,10 +2,6 @@ FROM d_base:latest
 
 EXPOSE 22/tcp
 
-# Install cpanminus for bgpsimple
-# cpanminus and build-essential needed for this
-# RUN cpanm Net::BGP
-
 RUN apk add --no-cache openssh-client openssh-server zip ncurses \
     && ssh-keygen -A \
     && mkdir -p /var/run/sshd /root/.ssh \
