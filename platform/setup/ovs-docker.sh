@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO: fix hard-coded "lab" paths
 
 
 # original file at https://github.com/openvswitch/ovs/blob/master/utilities/ovs-docker
@@ -65,7 +66,7 @@ delete_netns_link () {
     rm -f /var/run/netns/"$PID"
 }
 
-source ./groups/docker_pid.map
+source ./labs/groups/docker_pid.map
 get_docker_pid() {
     if [[ -v "DOCKER_TO_PID[$1]" ]]; then
         DOCKER_PID="${DOCKER_TO_PID[$1]}"
@@ -127,8 +128,8 @@ add_port () {
 
     create_netns_link
 
-    echo "if [ \"$CONTAINER\" == \$container_name ]; then" >> groups/restart_container.sh
-    echo "  echo \"Create Link for $CONTAINER ($INTERFACE) on bridge $BIRDGE\"" >> groups/restart_container.sh
+    echo "if [ \"$CONTAINER\" == \$container_name ]; then" >> labs/groups/restart_container.sh
+    echo "  echo \"Create Link for $CONTAINER ($INTERFACE) on bridge $BIRDGE\"" >> labs/groups/restart_container.sh
 
     # Create a veth pair.
     if [[ $(lsb_release -rs) == ^16* ]]; then
@@ -138,68 +139,68 @@ add_port () {
     fi
     PORTNAME="${ID:0:13}"
 
-    echo "#ip link add "${PORTNAME}_l" type veth peer name "${PORTNAME}_c >> groups/ip_setup.sh
+    echo "#ip link add "${PORTNAME}_l" type veth peer name "${PORTNAME}_c >> labs/groups/ip_setup.sh
 
     ip link add "${PORTNAME}_l" type veth peer name "${PORTNAME}_c"
-    echo "ip link delete "${PORTNAME}_l >> groups/delete_veth_pairs.sh
+    echo "ip link delete "${PORTNAME}_l >> labs/groups/delete_veth_pairs.sh
 
-    # echo "  ip link delete "${PORTNAME}_l >> groups/restart_container.sh
-    echo "  ip link add "${PORTNAME}_l" type veth peer name "${PORTNAME}_c >> groups/restart_container.sh
+    # echo "  ip link delete "${PORTNAME}_l >> labs/groups/restart_container.sh
+    echo "  ip link add "${PORTNAME}_l" type veth peer name "${PORTNAME}_c >> labs/groups/restart_container.sh
 
-    echo "-- add-port "$BRIDGE" "${PORTNAME}_l" \\" >> groups/add_ports.sh
-    echo "-- set interface "${PORTNAME}_l" external_ids:container_id="$CONTAINER" external_ids:container_iface="$INTERFACE" \\" >> groups/add_ports.sh
+    echo "-- add-port "$BRIDGE" "${PORTNAME}_l" \\" >> labs/groups/add_ports.sh
+    echo "-- set interface "${PORTNAME}_l" external_ids:container_id="$CONTAINER" external_ids:container_iface="$INTERFACE" \\" >> labs/groups/add_ports.sh
 
-    echo "  ovs-vsctl del-port "$BRIDGE" "${PORTNAME}_l >> groups/restart_container.sh
-    echo "  ovs-vsctl add-port "$BRIDGE" "${PORTNAME}_l >> groups/restart_container.sh
-    echo "  ovs-vsctl set interface "${PORTNAME}_l" external_ids:container_id="$CONTAINER" external_ids:container_iface="$INTERFACE >> groups/restart_container.sh
+    echo "  ovs-vsctl del-port "$BRIDGE" "${PORTNAME}_l >> labs/groups/restart_container.sh
+    echo "  ovs-vsctl add-port "$BRIDGE" "${PORTNAME}_l >> labs/groups/restart_container.sh
+    echo "  ovs-vsctl set interface "${PORTNAME}_l" external_ids:container_id="$CONTAINER" external_ids:container_iface="$INTERFACE >> labs/groups/restart_container.sh
 
-    echo "ip link set "${PORTNAME}_l" up" >> groups/ip_setup.sh
-    echo "  ip link set "${PORTNAME}_l" up" >> groups/restart_container.sh
+    echo "ip link set "${PORTNAME}_l" up" >> labs/groups/ip_setup.sh
+    echo "  ip link set "${PORTNAME}_l" up" >> labs/groups/restart_container.sh
 
     # Move "${PORTNAME}_c" inside the container and changes its name.
-    echo "PID=$PID">> groups/ip_setup.sh
-    echo "create_netns_link" >> groups/ip_setup.sh
-    echo "ip link set "${PORTNAME}_c" netns "\$PID"" >> groups/ip_setup.sh
-    echo "ip netns exec "\$PID" ip link set dev "${PORTNAME}_c" name "$INTERFACE"" >> groups/ip_setup.sh
-    echo "ip netns exec "\$PID" ip link set "$INTERFACE" up" >> groups/ip_setup.sh
+    echo "PID=$PID">> labs/groups/ip_setup.sh
+    echo "create_netns_link" >> labs/groups/ip_setup.sh
+    echo "ip link set "${PORTNAME}_c" netns "\$PID"" >> labs/groups/ip_setup.sh
+    echo "ip netns exec "\$PID" ip link set dev "${PORTNAME}_c" name "$INTERFACE"" >> labs/groups/ip_setup.sh
+    echo "ip netns exec "\$PID" ip link set "$INTERFACE" up" >> labs/groups/ip_setup.sh
 
-    echo "  PID=\$(docker inspect -f '{{.State.Pid}}' "$CONTAINER")">> groups/restart_container.sh
-    echo "  create_netns_link" >> groups/restart_container.sh
-    echo "  ip link set "${PORTNAME}_c" netns "\$PID"" >> groups/restart_container.sh
-    echo "  ip netns exec "\$PID" ip link set dev "${PORTNAME}_c" name "$INTERFACE"" >> groups/restart_container.sh
-    echo "  ip netns exec "\$PID" ip link set "$INTERFACE" up" >> groups/restart_container.sh
+    echo "  PID=\$(docker inspect -f '{{.State.Pid}}' "$CONTAINER")">> labs/groups/restart_container.sh
+    echo "  create_netns_link" >> labs/groups/restart_container.sh
+    echo "  ip link set "${PORTNAME}_c" netns "\$PID"" >> labs/groups/restart_container.sh
+    echo "  ip netns exec "\$PID" ip link set dev "${PORTNAME}_c" name "$INTERFACE"" >> labs/groups/restart_container.sh
+    echo "  ip netns exec "\$PID" ip link set "$INTERFACE" up" >> labs/groups/restart_container.sh
 
     if [ -n "$MTU" ]; then
         ip netns exec "$PID" ip link set dev "$INTERFACE" mtu "$MTU"
-        echo "  ip netns exec "$PID" ip link set dev "$INTERFACE" mtu "$MTU >> groups/restart_container.sh
+        echo "  ip netns exec "$PID" ip link set dev "$INTERFACE" mtu "$MTU >> labs/groups/restart_container.sh
     fi
 
     if [ -n "$ADDRESS" ]; then
-        echo "ip netns exec "\$PID" ip addr add "$ADDRESS" dev "$INTERFACE"" >> groups/ip_setup.sh
-        echo "  ip netns exec "\$PID" ip addr add "$ADDRESS" dev "$INTERFACE"" >> groups/restart_container.sh
+        echo "ip netns exec "\$PID" ip addr add "$ADDRESS" dev "$INTERFACE"" >> labs/groups/ip_setup.sh
+        echo "  ip netns exec "\$PID" ip addr add "$ADDRESS" dev "$INTERFACE"" >> labs/groups/restart_container.sh
     fi
 
     if [ -n "$MACADDRESS" ]; then
-        echo "ip netns exec "$PID" ip link set dev "$INTERFACE" address "$MACADDRESS"" >> groups/ip_setup.sh
-        echo "  ip netns exec "$PID" ip link set dev "$INTERFACE" address "$MACADDRESS"" >> groups/restart_container.sh
+        echo "ip netns exec "$PID" ip link set dev "$INTERFACE" address "$MACADDRESS"" >> labs/groups/ip_setup.sh
+        echo "  ip netns exec "$PID" ip link set dev "$INTERFACE" address "$MACADDRESS"" >> labs/groups/restart_container.sh
     fi
 
     if [ -n "$GATEWAY" ]; then
-        echo "ip netns exec "$PID" ip route add default via "$GATEWAY"" >> groups/ip_setup.sh
-        echo "  ip netns exec "$PID" ip route add default via "$GATEWAY"" >> groups/restart_container.sh
+        echo "ip netns exec "$PID" ip route add default via "$GATEWAY"" >> labs/groups/ip_setup.sh
+        echo "  ip netns exec "$PID" ip route add default via "$GATEWAY"" >> labs/groups/restart_container.sh
     fi
 
     if [ -n "$DELAY" ]; then
-        echo "tc qdisc add dev "${PORTNAME}"_l root netem delay "${DELAY}" " >> groups/delay_throughput.sh
-        echo "  tc qdisc add dev "${PORTNAME}"_l root netem delay "${DELAY}" " >> groups/restart_container.sh
+        echo "tc qdisc add dev "${PORTNAME}"_l root netem delay "${DELAY}" " >> labs/groups/delay_throughput.sh
+        echo "  tc qdisc add dev "${PORTNAME}"_l root netem delay "${DELAY}" " >> labs/groups/restart_container.sh
     fi
 
     if [ -n "$THROUGHPUT" ]; then
-        echo "echo -n \" -- set interface "${PORTNAME}"_l ingress_policing_rate="${THROUGHPUT}" \" >> groups/throughput.sh " >> groups/delay_throughput.sh
-        echo "  ovs-vsctl set interface ${PORTNAME}_l ingress_policing_rate=${THROUGHPUT}" >> groups/restart_container.sh
+        echo "echo -n \" -- set interface "${PORTNAME}"_l ingress_policing_rate="${THROUGHPUT}" \" >> labs/groups/throughput.sh " >> labs/groups/delay_throughput.sh
+        echo "  ovs-vsctl set interface ${PORTNAME}_l ingress_policing_rate=${THROUGHPUT}" >> labs/groups/restart_container.sh
     fi
 
-    echo "fi" >> groups/restart_container.sh
+    echo "fi" >> labs/groups/restart_container.sh
 
 }
 
@@ -229,22 +230,22 @@ connect_ports () {
     fi
     PORTNAME2="${ID2:0:13}"
 
-    echo "port_id1=\`ovs-vsctl get Interface ${PORTNAME1}_l ofport\`" >> groups/ip_setup.sh
-    echo "port_id2=\`ovs-vsctl get Interface ${PORTNAME2}_l ofport\`" >> groups/ip_setup.sh
+    echo "port_id1=\`ovs-vsctl get Interface ${PORTNAME1}_l ofport\`" >> labs/groups/ip_setup.sh
+    echo "port_id2=\`ovs-vsctl get Interface ${PORTNAME2}_l ofport\`" >> labs/groups/ip_setup.sh
 
-    echo "ovs-ofctl add-flow $BRIDGE in_port=\$port_id1,actions=output:\$port_id2" >> groups/ip_setup.sh
-    echo "ovs-ofctl add-flow $BRIDGE in_port=\$port_id2,actions=output:\$port_id1" >> groups/ip_setup.sh
+    echo "ovs-ofctl add-flow $BRIDGE in_port=\$port_id1,actions=output:\$port_id2" >> labs/groups/ip_setup.sh
+    echo "ovs-ofctl add-flow $BRIDGE in_port=\$port_id2,actions=output:\$port_id1" >> labs/groups/ip_setup.sh
 
-    echo "if [ \"$CONTAINER1\" == \$container_name ] || [ \"$CONTAINER2\" == \$container_name ]; then" >> groups/restart_container.sh
-    echo "  echo \"Link between $CONTAINER1 ($INTERFACE1) and $CONTAINER2 ($INTERFACE2)\"" >> groups/restart_container.sh
+    echo "if [ \"$CONTAINER1\" == \$container_name ] || [ \"$CONTAINER2\" == \$container_name ]; then" >> labs/groups/restart_container.sh
+    echo "  echo \"Link between $CONTAINER1 ($INTERFACE1) and $CONTAINER2 ($INTERFACE2)\"" >> labs/groups/restart_container.sh
 
-    echo "  port_id1=\`ovs-vsctl get Interface ${PORTNAME1}_l ofport\`" >> groups/restart_container.sh
-    echo "  port_id2=\`ovs-vsctl get Interface ${PORTNAME2}_l ofport\`" >> groups/restart_container.sh
+    echo "  port_id1=\`ovs-vsctl get Interface ${PORTNAME1}_l ofport\`" >> labs/groups/restart_container.sh
+    echo "  port_id2=\`ovs-vsctl get Interface ${PORTNAME2}_l ofport\`" >> labs/groups/restart_container.sh
 
-    echo "  ovs-ofctl add-flow $BRIDGE in_port=\$port_id1,actions=output:\$port_id2" >> groups/restart_container.sh
-    echo "  ovs-ofctl add-flow $BRIDGE in_port=\$port_id2,actions=output:\$port_id1" >> groups/restart_container.sh
+    echo "  ovs-ofctl add-flow $BRIDGE in_port=\$port_id1,actions=output:\$port_id2" >> labs/groups/restart_container.sh
+    echo "  ovs-ofctl add-flow $BRIDGE in_port=\$port_id2,actions=output:\$port_id1" >> labs/groups/restart_container.sh
 
-    echo "fi" >> groups/restart_container.sh
+    echo "fi" >> labs/groups/restart_container.sh
 
 }
 
