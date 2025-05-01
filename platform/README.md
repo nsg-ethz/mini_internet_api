@@ -1,6 +1,18 @@
 # The mini-Internet platform
 
-The documentation is available in the [**wiki**](https://github.com/nsg-ethz/mini_internet_project/wiki).
+### API mini-Internet instructions
+
+**Note that the wiki does not yet reflect the newest changes.**
+
+To use this version of the mini-Internet, you need to locally build the
+corresponding containers using e.g.: `./docker_images/build.sh`
+
+The current startup script allows to easily start a specific mini-Internet
+(called "lab"). Use e.g., `./startup.sh demo` (for an advanced network with many
+features) or `./startup.sh default` to start a simple, default one.
+
+Older documentation is available in the
+[**wiki**](https://github.com/nsg-ethz/mini_internet_project/wiki).
 
 ### 2024 Routing project (25 March!)
 
