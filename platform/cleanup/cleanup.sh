@@ -27,13 +27,15 @@ DIRECTORY="$1"
 # remove all container & restart docker
 # remove all stopped containers, unused networks, dangling images and unused caches
 # -f: no confirmation
-docker system prune -f
+# docker system prune -f
 
 # find all namespaces with dangling symbolic links and remove them
-find /var/run/netns -xtype l -delete
+if [ -e "/var/run/netns" ]; then
+  find /var/run/netns -xtype l -delete
+fi
 
 # # clear stale ovs interfaces on the server
-interface_list=$(ip link | grep -E '(_c@|vpn|_l|_a|_b|veth)' | awk -F': ' '{print $2}' | cut -d'@' -f1 || true) # ignore errors
+interface_list=$(ip link | grep -E '(_c@|vpn|_l|_a|_b)' | awk -F': ' '{print $2}' | cut -d'@' -f1 || true) # ignore errors
 
 # Check if interface_list is not empty
 if [ -n "$interface_list" ]; then
@@ -42,7 +44,6 @@ if [ -n "$interface_list" ]; then
         ip link delete "$interface" || true
     done
 fi
-
 
 echo -n "ovs-vsctl " > "${DIRECTORY}"/ovs_command.txt
 
@@ -55,7 +56,6 @@ echo -n "ovs-vsctl " > "${DIRECTORY}"/ovs_command.txt
 ./cleanup/dns_cleanup.sh "${DIRECTORY}"
 ./cleanup/ssh_cleanup.sh "${DIRECTORY}"
 ./cleanup/vpn_cleanup.sh "${DIRECTORY}"
-
 
 # ensure any failure in the executed commands does not stop the script due to errexit
 bash  < "${DIRECTORY}"/ovs_command.txt || true
