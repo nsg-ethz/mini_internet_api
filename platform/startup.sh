@@ -305,6 +305,7 @@ if [[ "$1" == "demo" ]]; then
 
     echo ""
     echo ""
+fi
 
 # echo "Applying hijacks: "
 # echo "hijacks $(($(date +%s%N)/1000000))" >> "${DIRECTORY}"/log.txt
