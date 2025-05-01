@@ -36,6 +36,43 @@ MeasureRequired=$(check_service_is_required "MEASUREMENT")
 DNSRequired=$(check_service_is_required "DNS")
 MatrixRequired=$(check_service_is_required "MATRIX")
 
+# NetFlow setup
+for ((k=0;k<GroupNumber;k++)); do
+    group_k=(${ASConfig[$k]})
+    group_number="${group_k[0]}"
+    group_as="${group_k[1]}"
+    group_config="${group_k[2]}"
+    group_router_config="${group_k[3]}"
+    group_internal_links="${group_k[4]}"
+
+    if [ "${group_as}" != "IXP" ];then
+
+        readarray routers < "${DIRECTORY}"/config/$group_router_config
+
+        readarray intern_links < "${DIRECTORY}"/config/$group_internal_links
+        n_intern_links=${#intern_links[@]}
+
+        if [ "$n_intern_links" != "0" ]; then
+
+            n_routers=${#routers[@]}
+            for ((i=0;i<n_routers;i++)); do
+                router_i=(${routers[$i]})
+                rname="${router_i[0]}"
+
+                read -r pid1 pid2 < <(connect_two_interfaces "${group_number}_netflow" "port_""${rname}" \
+                "${group_number}"_"${rname}"router "netflow" "100000" "10ms" "50ms")
+
+                subnet_collector="$(subnet_netflow_collector ${group_number} ${i} collector)"
+                subnet_router="$(subnet_netflow_collector ${group_number} ${i} router)"
+
+                ip netns exec $pid1 ip a add "${subnet_collector}" dev "port_""${rname}"
+                ip netns exec $pid1 ip link set dev "port_""${rname}" up
+
+            done
+        fi
+    fi
+done
+
 # start measurement container
 # ssh is configured for remote access, and we add direct access below.
 if [[ "$MeasureRequired" == "True" ]]; then
@@ -46,7 +83,7 @@ if [[ "$MeasureRequired" == "True" ]]; then
         --sysctl net.ipv4.icmp_ratelimit=0 \
         --sysctl net.ipv4.ip_forward=0 \
         --name="MEASUREMENT" --hostname="MEASUREMENT" \
-        --cpus=2 --pids-limit 100 \
+        --cpus=2 --pids-limit 1000 \
         -v /etc/timezone:/etc/timezone:ro \
         -v /etc/localtime:/etc/localtime:ro \
         -v \
@@ -197,7 +234,7 @@ for ((k = 0; k < GroupNumber; k++)); do
 done
 
 # connect measurement to dns
-if [[ "$DNSRequired" == "True" ]]; then
+if [[ "$DNSRequired" == "True" && "$MatrixRequired" == "True" ]]; then
     connect_service_interfaces \
         "DNS" "measurement" "$(subnet_router_DNS -1 "dns-measurement")" \
         "MEASUREMENT" "dns" "$(subnet_router_DNS -1 "measurement")" \

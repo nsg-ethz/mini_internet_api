@@ -94,10 +94,69 @@ for ((k = 0; k < group_numbers; k++)); do
                 chmod +x "${configdir}/conf_full.sh"
                 location="${configdir}/conf_full.sh"
 
+                # to enable SNMP collection via host connected to R1
+                if [[ "$rname" == "R1" ]]; then
+                    HostSubnet="$(subnet_host_router "${group_number}" "${i}" "host")"
+                    {
+                        echo "ip route $(subnet_snmp main) ${HostSubnet%/*}"
+                        echo "ip prefix-list STATIC_PREFIX seq 10 permit $(subnet_snmp main)"
+                        echo "route-map STATIC permit 10"
+                        echo "match ip address prefix-list STATIC_PREFIX"
+                        echo "exit"
+                        echo "router ospf"
+                        echo "redistribute static route-map STATIC"
+                        echo "exit"
+                    } >> "${location}"
+                fi
+
+                # to enable SNMP collection via host connected to l1-1 for demo topology
+                if [[ "$rname" == "l1-1" ]]; then
+                    HostSubnet="$(subnet_host_router "${group_number}" "${i}" "host")"
+                    {
+                        echo "ip route $(subnet_snmp main) ${HostSubnet%/*}"
+                        echo "ip prefix-list STATIC_PREFIX seq 10 permit $(subnet_snmp main)"
+                        echo "route-map STATIC permit 10"
+                        echo "match ip address prefix-list STATIC_PREFIX"
+                        echo "exit"
+                        echo "router ospf"
+                        echo "redistribute static route-map STATIC"
+                        echo "exit"
+                    } >> "${location}"
+                fi
+
+                # to enable SSH sessions from hosts connected to R1
+                if [[ "$rname" == "R1" ]]; then
+                    HostSubnet="$(subnet_host_router "${group_number}" "${i}" "host")"
+                    {
+                        echo "ip route $(subnet_ssh main) ${HostSubnet%/*}"
+                        echo "ip prefix-list STATIC_PREFIX_SSH seq 10 permit $(subnet_ssh main)"
+                        echo "route-map STATIC permit 20"
+                        echo "match ip address prefix-list STATIC_PREFIX_SSH"
+                        echo "exit"
+                    } >> "${location}"
+                fi
+
+                # to enable SSH sessions from hosts connected to l1-1 for demo topology
+                if [[ "$rname" == "l1-1" ]]; then
+                    HostSubnet="$(subnet_host_router "${group_number}" "${i}" "host")"
+                    {
+                        echo "ip route $(subnet_ssh main) ${HostSubnet%/*}"
+                        echo "ip prefix-list STATIC_PREFIX_SSH seq 10 permit $(subnet_ssh main)"
+                        echo "route-map STATIC permit 20"
+                        echo "match ip address prefix-list STATIC_PREFIX_SSH"
+                        echo "exit"
+                    } >> "${location}"
+                fi
+
                 {
                     echo "interface lo"
                     echo "ip address $(subnet_router ${group_number} ${i})"
                     echo "exit"
+
+                    echo "interface netflow"
+                    echo "ip address $(subnet_netflow_collector ${group_number} ${i} router)"
+                    echo "exit"
+
                     if [[ ! -z "${dname}" ]]; then
                         if [[ "$all_in_one" == "true" ]]; then
                             for ((j = 0; j < n_routers; j++)); do
@@ -118,6 +177,14 @@ for ((k = 0; k < group_numbers; k++)); do
                             echo "router ospf"
                             echo "network $(subnet_host_router ${group_number} ${i} router) area 0"
                             echo "exit"
+                            for ((j=1;j<6;j++)); do
+                                echo "interface host"${j}""
+                                echo "ip address $(subnet_host_router_add ${group_number} ${i} router "${j}")"
+                                echo "exit"
+                                echo "router ospf"
+                                echo "network $(subnet_host_router_add ${group_number} ${i} router "${j}") area 0"
+                                echo "exit"
+                            done
                         fi
                     fi
 
@@ -134,6 +201,7 @@ for ((k = 0; k < group_numbers; k++)); do
                     echo "network $(subnet_router ${group_number} ${i}) area 0"
                     echo "exit"
                     echo "ip route $(subnet_group ${group_number}) null0"
+                    echo "ip route $(subnet_netflow_collector ${group_number} ${i} main) $(subnet_netflow_collector ${group_number} ${i} collector_ip)"
                     echo "ip prefix-list OWN_PREFIX seq 5 permit $(subnet_group ${group_number})"
                     echo "route-map OWN_PREFIX permit 10"
                     echo "match ip address prefix-list OWN_PREFIX"
@@ -170,7 +238,8 @@ for ((k = 0; k < group_numbers; k++)); do
                 {
                     echo "interface port_${router2}"
                     echo "ip address $(subnet_router_router_intern ${group_number} ${i} 1)"
-                    echo "ip ospf cost 1"
+                    echo "ip ospf cost ${row_i[5]}"
+                    echo "ip ospf bfd"
                     echo "exit"
                     echo "router ospf"
                     echo "network $(subnet_router_router_intern ${group_number} ${i} 1) area 0"
@@ -179,7 +248,8 @@ for ((k = 0; k < group_numbers; k++)); do
                 {
                     echo "interface port_${router1}"
                     echo "ip address $(subnet_router_router_intern ${group_number} ${i} 2)"
-                    echo "ip ospf cost 1"
+                    echo "ip ospf cost ${row_i[5]}"
+                    echo "ip ospf bfd"
                     echo "exit"
                     echo "router ospf"
                     echo "network $(subnet_router_router_intern ${group_number} ${i} 2) area 0"
