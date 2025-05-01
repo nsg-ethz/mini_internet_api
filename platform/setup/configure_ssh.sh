@@ -1,132 +1,67 @@
 #!/bin/bash
 #
-# Connects the ssh links for each group
-#
+# adds a public key to each router and host for SSH-based access
 
-# sanity check
-trap 'exit 1' ERR
 set -o errexit
 set -o pipefail
 set -o nounset
 
-# make sure the script is executed with root privileges
-if (($UID != 0)); then
-    echo "$0 needs to be run as root"
-    exit 1
-fi
+DIRECTORY="$1"
+source "${DIRECTORY}/config/subnet_config.sh"
+source "${DIRECTORY}/setup/_parallel_helper.sh"
 
-# print the usage if not enough arguments are provided
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <directory>"
-    exit 1
-fi
+# read configs
+readarray groups < "${DIRECTORY}/config/AS_config.txt"
+readarray extern_links < "${DIRECTORY}/config/aslevel_links.txt"
+readarray l2_switches < "${DIRECTORY}/config/l2_switches.txt"
+readarray l2_links < "${DIRECTORY}/config/l2_links.txt"
+readarray l2_hosts < "${DIRECTORY}/config/l2_hosts.txt"
 
-DIRECTORY=$1
-source "${DIRECTORY}"/config/subnet_config.sh
-source "${DIRECTORY}"/setup/_parallel_helper.sh
-source "${DIRECTORY}"/groups/docker_pid.map
-source "${DIRECTORY}"/setup/_connect_utils.sh
+group_numbers="${#groups[@]}"
+n_extern_links="${#extern_links[@]}"
+n_l2_switches="${#l2_switches[@]}"
+n_l2_links="${#l2_links[@]}"
+n_l2_hosts="${#l2_hosts[@]}"
 
-# Generate TA key pair
-ssh-keygen -t rsa -b 4096 -C "ta key" -P "" -f "groups/id_rsa" -q
-# We need to distribute the key to the TAs, so we make it readable.
-chmod +r groups/id_rsa
-cp groups/id_rsa.pub groups/authorized_keys
+# prepare given key
+cp "${DIRECTORY}"/config/lab_network.pub "${DIRECTORY}"/groups/authorized_keys
 
-readarray ASConfig < "${DIRECTORY}"/config/AS_config.txt
-GroupNumber=${#ASConfig[@]}
+# create initial configuration for each router
+for ((k = 0; k < group_numbers; k++)); do
+    (
+        group_k=(${groups[$k]})
+        group_number="${group_k[0]}"
+        group_as="${group_k[1]}"
+        group_config="${group_k[2]}"
+        group_router_config="${group_k[3]}"
+        group_internal_links="${group_k[4]}"
 
-for ((k = 0; k < GroupNumber; k++)); do
-    GroupK=(${ASConfig[$k]})           # group config file array
-    GroupAS="${GroupK[0]}"             # ASN
-    GroupType="${GroupK[1]}"           # IXP/AS
-    GroupRouterConfig="${GroupK[3]}"   # Group router config file
-    GroupL2SwitchConfig="${GroupK[5]}" # Group L2 switch config file
-    GroupL2HostConfig="${GroupK[6]}"   # Group L2 host config file
+        if [ "${group_as}" != "IXP" ]; then
 
-    GroupDirectory="${DIRECTORY}/groups/g${GroupAS}"
+            readarray routers < "${DIRECTORY}/config/${group_router_config}"
+            n_routers="${#routers[@]}"
 
-    if [ "${GroupType}" != "IXP" ]; then
+            for ((i = 0; i < n_routers; i++)); do
+                router_i=(${routers[$i]})
+                rname="${router_i[0]}"
+                property1="${router_i[1]}"
+                property2="${router_i[2]}"
+                dname=$(echo $property2 | cut -s -d ':' -f 2)
 
-        readarray Routers < "${DIRECTORY}"/config/$GroupRouterConfig
-        readarray L2Switches < "${DIRECTORY}/config/$GroupL2SwitchConfig"
-        readarray L2Hosts < "${DIRECTORY}/config/$GroupL2HostConfig"
+                if [ ${#rname} -gt 10 ]; then
+                    echo 'ERROR: Router names must have a length lower or equal than 10'
+                    exit 1
+                fi
 
-        RouterNumber=${#Routers[@]}
-        L2SwitchNumber=${#L2Switches[@]}
-        L2HostNumber=${#L2Hosts[@]}
+                # copy pub key to router
+                docker cp "${DIRECTORY}"/groups/authorized_keys "${group_number}_${rname}router":/root/.ssh/authorized_keys > /dev/null
 
-        # generate ssh key
-        GroupSSHContainer="${GroupAS}_ssh"
-        ssh-keygen -t rsa -b 4096 -C "internal key group ${GroupAS}" -P "" -f "groups/g${GroupAS}/id_rsa" -q
+                # copy pub key to host
+                docker cp "${DIRECTORY}"/groups/authorized_keys "${group_number}_${rname}host":/root/.ssh/authorized_keys > /dev/null
 
-        docker cp "${GroupDirectory}"/id_rsa "${GroupAS}"_ssh:/root/.ssh/id_rsa > /dev/null
-        docker cp "${GroupDirectory}"/id_rsa.pub "${GroupAS}"_ssh:/root/.ssh/id_rsa.pub > /dev/null
-
-        # authorize TA key
-        docker cp "${DIRECTORY}"/groups/authorized_keys "${GroupSSHContainer}:/root/.ssh/authorized_keys" > /dev/null
-        # docker cp "${DIRECTORY}"/groups/authorized_keys "${GroupSSHContainer}:/etc/ssh/authorized_keys" > /dev/null
-
-        # set password for the ssh container login
-        Passwd=$(awk "\$1 == \"${GroupAS}\" { print \$2 }" "${DIRECTORY}/groups/passwords.txt")
-        echo -e ""${Passwd}"\n"${Passwd}"" | docker exec -i "${GroupSSHContainer}" passwd root > /dev/null
-        # reload sshd config
-        docker exec "${GroupSSHContainer}" bash -c "kill -HUP \$(cat /var/run/sshd.pid)"
-
-        # add ssh public key in each router and L3 host container
-        for ((i = 0; i < RouterNumber; i++)); do
-            RouterI=(${Routers[$i]})                               # router row
-            RouterRegion="${RouterI[0]}"                           # router region
-            HostImage=$(echo "${RouterI[2]}" | cut -s -d ':' -f 2) # docker image
-            RouterCommand="${RouterI[3]}"                          # vtysh / linux
-
-            # copy the public key to the router container
-            RouterContainer="${GroupAS}_${RouterRegion}router"
-            # for all-in-one AS, this could copy the same router multiple times
-            # but in general the overhead should be small
-            docker cp "${GroupDirectory}"/id_rsa.pub "${RouterContainer}:/root/.ssh/authorized_keys" > /dev/null
-
-            # copy the public key to the L3 host container
-            HostSuffix=""
-            if [[ ${#RouterI[@]} -gt 4 && "${RouterI[4]}" == "ALL" ]]; then
-                HostSuffix="${i}"
-            fi
-
-            if [[ -n "${HostImage}" ]]; then
-                HostContainer="${GroupAS}_${RouterRegion}host${HostSuffix}"
-                docker cp "${GroupDirectory}"/id_rsa.pub "${HostContainer}:/root/.ssh/authorized_keys" > /dev/null
-                # reload ssh config
-                docker exec "${HostContainer}" bash -c "kill -HUP \$(cat /var/run/sshd.pid)"
-            fi
-        done
-
-        # add ssh public key in each L2 switch container
-        for ((i = 0; i < L2SwitchNumber; i++)); do
-            L2SwitchI=(${L2Switches[$i]}) # L2 switch row
-            DCName="${L2SwitchI[0]}"      # DC name
-            SWName="${L2SwitchI[1]}"      # switch name
-
-            SwCtnName="${GroupAS}_L2_${DCName}_${SWName}"
-
-            docker cp "${GroupDirectory}"/id_rsa.pub "${SwCtnName}:/root/.ssh/authorized_keys" > /dev/null
-        done
-
-        # add ssh public key in each L2 host container
-        for ((i = 0; i < L2HostNumber; i++)); do
-            L2HostI=(${L2Hosts[$i]}) # L2 host row
-            HostName="${L2HostI[0]}" # host name
-            DCName="${L2HostI[2]}"   # DC name
-            SWName="${L2HostI[3]}"   # switch name
-
-            # skip vpn
-            if [[ ! ${HostName} == vpn* ]]; then
-                HostContainer="${GroupAS}_L2_${DCName}_${HostName}"
-                docker cp "${GroupDirectory}"/id_rsa.pub "${HostContainer}:/root/.ssh/authorized_keys" > /dev/null
-                # reload ssh config
-                docker exec "${HostContainer}" bash -c "kill -HUP \$(cat /var/run/sshd.pid)"
-            fi
-        done
-    echo "Configured SSH in group ${GroupAS}"
-    fi
+            done
+        fi
+    ) &
+    wait_if_n_tasks_are_running
 done
-wait # wait for all parallel tasks to finish
+wait
