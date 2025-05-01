@@ -1,0 +1,2 @@
+55	ext1-1	Customer    	163	R1	Provider    	100mbit	10ms	50ms	179.1.2.0/24
+55	ext1-3	Customer    	15	R1	Provider    	100mbit	10ms	50ms	179.1.3.0/24

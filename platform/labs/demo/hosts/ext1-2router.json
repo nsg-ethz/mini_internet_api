@@ -1,0 +1,47 @@
+{
+    "hostname": "ext1-2_router",
+    "iptablesFile": "iptables/ext1-2router.iptables",
+    "overlay": true,
+    "hostInterfaces": {
+        "host": {
+            "name": "host",
+            "prefix": "55.105.0.2/24"
+        },
+        "host1": {
+            "name": "host1",
+            "prefix": "55.105.1.2/24"
+        },
+        "host2": {
+            "name": "host2",
+            "prefix": "55.105.2.2/24"
+        },
+        "host3": {
+            "name": "host3",
+            "prefix": "55.105.3.2/24"
+        },
+        "host4": {
+            "name": "host4",
+            "prefix": "55.105.4.2/24"
+        },
+        "host5": {
+            "name": "host5",
+            "prefix": "55.105.5.2/24"
+        },
+        "lo": {
+            "name": "lo",
+            "prefix": "55.155.0.1/32"
+        },
+        "netflow": {
+            "name": "netflow",
+            "prefix": "211.0.55.11/31"
+        },
+        "port_ext1-1": {
+            "name": "port_ext1-1",
+            "prefix": "55.0.36.2/24"
+        },
+        "port_ext1-3": {
+            "name": "port_ext1-3",
+            "prefix": "55.0.21.1/24"
+        }
+    }
+}

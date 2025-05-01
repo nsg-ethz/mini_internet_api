@@ -1,0 +1,47 @@
+{
+    "hostname": "l1-2_router",
+    "iptablesFile": "iptables/l1-2router.iptables",
+    "overlay": true,
+    "hostInterfaces": {
+        "host": {
+            "name": "host",
+            "prefix": "55.102.0.2/24"
+        },
+        "host1": {
+            "name": "host1",
+            "prefix": "55.102.1.2/24"
+        },
+        "host2": {
+            "name": "host2",
+            "prefix": "55.102.2.2/24"
+        },
+        "host3": {
+            "name": "host3",
+            "prefix": "55.102.3.2/24"
+        },
+        "host4": {
+            "name": "host4",
+            "prefix": "55.102.4.2/24"
+        },
+        "host5": {
+            "name": "host5",
+            "prefix": "55.102.5.2/24"
+        },
+        "lo": {
+            "name": "lo",
+            "prefix": "55.152.0.1/32"
+        },
+        "netflow": {
+            "name": "netflow",
+            "prefix": "211.0.55.5/31"
+        },
+        "port_bb1-1": {
+            "name": "port_bb1-1",
+            "prefix": "55.0.3.1/24"
+        },
+        "port_l1-1": {
+            "name": "port_l1-1",
+            "prefix": "55.0.1.2/24"
+        }
+    }
+}

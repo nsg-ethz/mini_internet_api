@@ -1,0 +1,51 @@
+{
+    "hostname": "bb2-5_router",
+    "iptablesFile": "iptables/bb2-5router.iptables",
+    "overlay": true,
+    "hostInterfaces": {
+        "host": {
+            "name": "host",
+            "prefix": "55.120.0.2/24"
+        },
+        "host1": {
+            "name": "host1",
+            "prefix": "55.120.1.2/24"
+        },
+        "host2": {
+            "name": "host2",
+            "prefix": "55.120.2.2/24"
+        },
+        "host3": {
+            "name": "host3",
+            "prefix": "55.120.3.2/24"
+        },
+        "host4": {
+            "name": "host4",
+            "prefix": "55.120.4.2/24"
+        },
+        "host5": {
+            "name": "host5",
+            "prefix": "55.120.5.2/24"
+        },
+        "lo": {
+            "name": "lo",
+            "prefix": "55.170.0.1/32"
+        },
+        "netflow": {
+            "name": "netflow",
+            "prefix": "211.0.55.41/31"
+        },
+        "port_bb2-2": {
+            "name": "port_bb2-2",
+            "prefix": "55.0.31.2/24"
+        },
+        " port_bb2-3": {
+            "name": " port_bb2-3",
+            "prefix": "55.0.33.2/24"
+        },
+        "port_l2-1": {
+            "name": "port_l2-1",
+            "prefix": "55.0.35.1/24"
+        }
+    }
+}

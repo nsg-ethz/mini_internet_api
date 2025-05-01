@@ -1,0 +1,63 @@
+{
+    "hostname": "bb1-8_router",
+    "iptablesFile": "iptables/bb1-8router.iptables",
+    "overlay": true,
+    "hostInterfaces": {
+        "host": {
+            "name": "host",
+            "prefix": "55.115.0.2/24"
+        },
+        "host1": {
+            "name": "host1",
+            "prefix": "55.115.1.2/24"
+        },
+        "host2": {
+            "name": "host2",
+            "prefix": "55.115.2.2/24"
+        },
+        "host3": {
+            "name": "host3",
+            "prefix": "55.115.3.2/24"
+        },
+        "host4": {
+            "name": "host4",
+            "prefix": "55.115.4.2/24"
+        },
+        "host5": {
+            "name": "host5",
+            "prefix": "55.115.5.2/24"
+        },
+        "lo": {
+            "name": "lo",
+            "prefix": "55.165.0.1/32"
+        },
+        "netflow": {
+            "name": "netflow",
+            "prefix": "211.0.55.31/31"
+        },
+        "port_bb1-5": {
+            "name": "port_bb1-5",
+            "prefix": "55.0.16.2/24"
+        },
+        " port_bb1-6": {
+            "name": " port_bb1-6",
+            "prefix": "55.0.18.2/24"
+        },
+        " port_bb2-1": {
+            "name": " port_bb2-1",
+            "prefix": "55.0.26.1/24"
+        },
+        " port_bb2-3": {
+            "name": " port_bb2-3",
+            "prefix": "55.0.27.1/24"
+        },
+        " port_ext1-1": {
+            "name": " port_ext1-1",
+            "prefix": "55.0.24.1/24"
+        },
+        " port_ext1-3": {
+            "name": " port_ext1-3",
+            "prefix": "55.0.25.1/24"
+        }
+    }
+}

@@ -1,0 +1,47 @@
+{
+    "hostname": "dcn1-1_router",
+    "iptablesFile": "iptables/dcn1-1router.iptables",
+    "overlay": true,
+    "hostInterfaces": {
+        "host": {
+            "name": "host",
+            "prefix": "55.103.0.2/24"
+        },
+        "host1": {
+            "name": "host1",
+            "prefix": "55.103.1.2/24"
+        },
+        "host2": {
+            "name": "host2",
+            "prefix": "55.103.2.2/24"
+        },
+        "host3": {
+            "name": "host3",
+            "prefix": "55.103.3.2/24"
+        },
+        "host4": {
+            "name": "host4",
+            "prefix": "55.103.4.2/24"
+        },
+        "host5": {
+            "name": "host5",
+            "prefix": "55.103.5.2/24"
+        },
+        "lo": {
+            "name": "lo",
+            "prefix": "55.153.0.1/32"
+        },
+        "netflow": {
+            "name": "netflow",
+            "prefix": "211.0.55.7/31"
+        },
+        "port_bb1-2": {
+            "name": "port_bb1-2",
+            "prefix": "55.0.8.2/24"
+        },
+        " port_bb1-3": {
+            "name": " port_bb1-3",
+            "prefix": "55.0.11.2/24"
+        }
+    }
+}
