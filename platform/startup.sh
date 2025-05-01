@@ -107,7 +107,7 @@ cp -r "${DIRECTORY}"/"${1}" "${DIRECTORY}"/config
 # generate ssh key if not available
 if [ ! -e "${DIRECTORY}/config/lab_network.pub" ]; then
     echo "Generating new key pair for SSH access"
-    ssh-keygen -t rsa -b 4096 -C "lab key" -P "" -f "${DIRECTORY}/config/lab_network.pub" -q
+    ssh-keygen -t rsa -b 4096 -C "lab key" -P "" -f "${DIRECTORY}/config/lab_network" -q
 fi
 
 echo "cleanup.sh attempt based on new lab, in case someone else has it running"
