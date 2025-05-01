@@ -1,6 +1,6 @@
 FROM d_base:latest
 
-RUN apk add --no-cache openssh-server \
+RUN apk add --no-cache openssh-server net-snmp net-snmp-tools \
     && ssh-keygen -A \
     && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config \
     && sed -i 's/#PrintMotd yes/PrintMotd no/g' /etc/ssh/sshd_config \

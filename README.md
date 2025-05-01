@@ -1,6 +1,13 @@
 # An Open Platform to Teach How the Internet Practically Works
 
-Welcome in the official repository of the mini-Internet project.
+Welcome in the official API repository of the mini-Internet project.
+
+### API mini-Internet instructions
+
+Note that the wiki does not yet reflect the newest changes.
+
+To use all the new features, you need to locally build the corresponding
+containers using e.g.: `./docker_images/build.sh`
 
 ### The mini-Internet project
 

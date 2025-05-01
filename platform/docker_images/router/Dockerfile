@@ -1,6 +1,6 @@
 FROM d_base_supervisor:latest
 
-RUN apk add --no-cache openssh-server openssh-client frr frr-rpki frr-pythontools wireguard-tools \
+RUN apk add --no-cache openssh-server openssh-client frr frr-rpki frr-pythontools softflowd libpcap-dev git make gcc musl-dev linux-headers build-base openssl-dev util-linux-dev libnfnetlink-dev ip6tables iptables lldpd rsyslog wireguard-tools \
     && ssh-keygen -A \
     && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config \
     && sed -i 's/#PrintMotd yes/PrintMotd no/g' /etc/ssh/sshd_config \
@@ -24,6 +24,10 @@ RUN install -m 755 -o frr -g frr -d /var/log/frr \
     && install -m 640 -o frr -g frr /dev/null /etc/frr/nhrpd.conf \
     && install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
+RUN git clone https://github.com/sflow/host-sflow.git
+RUN cd host-sflow \
+    && make all install FEATURES="PCAP NFLOG PSAMPLE"
+
 EXPOSE 22
 
 ENV VPN_OVSERVER_SLEEP=30
@@ -34,3 +38,9 @@ COPY run_frr.sh /usr/local/bin/run_frr
 COPY wg_observer /usr/local/bin/wg_observer
 
 RUN chmod +x /usr/local/bin/looking_glass /usr/local/bin/run_frr /usr/local/bin/wg_observer
+
+# add SNMP
+RUN apk add --no-cache net-snmp net-snmp-tools
+
+# add basic snmpd config
+COPY snmpd.conf /etc/snmp/snmpd.conf
