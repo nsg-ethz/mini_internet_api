@@ -6,12 +6,12 @@ Welcome in the official API repository of the mini-Internet project.
 
 Note that the wiki does not yet reflect the newest changes.
 
-To use all the new features, you need to locally build the corresponding
-containers using e.g.: `./docker_images/build.sh`
+To use this version of the mini-Internet, you need to locally build the
+corresponding containers using e.g.: `./docker_images/build.sh`
 
 The current startup script allows to easily start a specific mini-Internet
 (called "lab"). Use e.g., `./startup.sh demo` (for an advanced network with many
-demo features) or `./startup.sh default` to start the default one.
+features) or `./startup.sh default` to start a simple, default one.
 
 ### The mini-Internet project
 
