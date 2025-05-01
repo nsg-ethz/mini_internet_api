@@ -9,6 +9,10 @@ Note that the wiki does not yet reflect the newest changes.
 To use all the new features, you need to locally build the corresponding
 containers using e.g.: `./docker_images/build.sh`
 
+The current startup script allows to easily start a specific mini-Internet
+(called "lab"). Use e.g., `./startup.sh demo` (for an advanced network with many
+demo features) or `./startup.sh original` to start the default one.
+
 ### The mini-Internet project
 
 A mini-Internet is a virtual network mimicking the real Internet. Among others, there are routers, switches and hosts that are located in different ASes. A mini-Internet runs in a single server and is tailored to teach how the Internet practically works. Each component of the network is running in its own dedicated linux container, that are remotely accessible by the students with simple ssh connections.
