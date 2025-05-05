@@ -386,7 +386,7 @@ def change_lab(request: config.ChangeLabRequest):
         config.IPS = get_IPS("router")
         # Potentially also actually change the running network lab, probably something like:
         # this command would only work if the API is running natively
-        # startub_lab_path = "/home/david/netfabric-code/startup_lab.sh"
+        # startub_lab_path = f"{path_to_repo}/platform/startup.sh"
         # result = subprocess.run([startup_lab_path, CURR_LAB], capture_output=True, text=True
         return f"Successfully changed to lab {config.CURR_LAB}"
     except FileNotFoundError:

@@ -30,10 +30,10 @@ optionally, set the port (the default port is 5432):
 
     export PORT=8002
 
-So if the netfabric-code repo is at in your home folder and you're using the demo topology:
+So if the mini_internet_api repo is in your home folder and you're using the demo topology:
 
-    export LABS_DIR=~/netfabric-code/virtual_networks/mini_internet/labs/
-    export LOGS_DIR=~/netfabric-code/virtual_networks/orchestration_platform/logs/
+    export LABS_DIR=~/mini_internet_api/platform/labs/
+    export LOGS_DIR=~/mini_internet_api/orchestration_platform/logs/
     export CURR_LAB=demo
     export LAB_PREFIX=55
 
@@ -68,7 +68,7 @@ def post_my_endpoint(request: config.My_Endpoint_Request)
     return app_logic.my_endpoint(request)
 ```
 ### Adding the request logic
-The request logic should be added to [app_logic.py](app_logic.py).
+The request logic should be added to an appropiately named function in [app_logic.py](app_logic.py).
 The structure of most endpoints tends to be quite similar but other types of requests are also possible and valid.
 Usually one wants to have some command executed in a container, perhaps with some arguments from the request. To do so, you needs to obtain the docker container object of the target. Additionally, you need to assemble a string with the desired command to be executed (special attention should be taken in regard with quotes and escaping characters). Then execute the command using `container.exec_run(...)`.
-Then return the relevant information (eg. has the command executed sucessfully? Output of the command?) back to the API client.
+Then return the relevant information (eg. if  the command has executed sucessfully? Output of the command?) back to the API client.

@@ -39,7 +39,7 @@ def parse_routers(filename):
 # Returns:
 #     int: Burst size in bits.
 # """
-# bash_script_path = "/home/david/netfabric-code/virtual_networks/mini_internet/setup/_connect_utils.sh"
+# bash_script_path = f"{path_to_repo}/platform/setup/_connect_utils.sh"
 # command = f"source {bash_script_path} && compute_burstsize {throughput} {mtu}"
 
 # try:

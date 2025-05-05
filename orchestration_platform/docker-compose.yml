@@ -5,7 +5,7 @@ services:
     - '${ORCHESTRATION_API_PORT:-5432}:5432'
     volumes:
       - ./:/app
-      - ../mini_internet/labs:/app/labs
+      - ../platform/labs:/app/labs
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - LABS_DIR=/app/labs
