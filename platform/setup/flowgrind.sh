@@ -31,7 +31,9 @@ for ((k=0;k<group_numbers;k++)); do
         property1="${router_i[1]}"
 
         # start flowgrindd
-        docker exec "${group_number}"_"${rname}"host flowgrindd
+        for port in {8000..8005}; do
+            docker exec "${group_number}"_"${rname}"host flowgrindd -p "$port"
+        done
 
     done
 done
