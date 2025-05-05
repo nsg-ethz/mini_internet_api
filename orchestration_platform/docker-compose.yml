@@ -1,0 +1,15 @@
+services:
+  orchestration_api:
+    build: .
+    ports:
+    - '${ORCHESTRATION_API_PORT:-5432}:5432'
+    volumes:
+      - ./:/app
+      - ../mini_internet/labs:/app/labs
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LABS_DIR=/app/labs
+      - LOGS_DIR=/app/logs
+      - CURR_LAB=demo
+      - LAB_PREFIX=55
+    #entrypoint: ["docker", "info"]
