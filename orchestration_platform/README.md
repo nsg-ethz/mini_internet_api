@@ -5,7 +5,13 @@ This folder contains a REST API for orchestrating virtual networks. It uses Fast
 > This API is inherently insecure as it allows the user to execute arbitrary commands within a docker container and potentially even on the host itself.
 
 ## Running the API
+
 ### Running in a docker container
+
+#### Setting ports
+
+If a different port on the host should be used: set the `ORCHESTRATION_API_PORT` environment variable to the desired value (eg. `export ORCHESTRATION_API_PORT=7832`).
+To change the port within the container set the `PORT` environment variable (eg. `export PORT=8002`)
 
 #### Setting up the container
 
@@ -14,7 +20,7 @@ We provide a simple docker compose script to bring up the API server. If another
 ```bash
 docker compose up -d
 ```
-If a different port on the host should be used: set the `ORCHESTRATION_API_PORT` environment variable to the desired value.
+
 
 ### Running on the host (Experimental)
 
@@ -70,5 +76,11 @@ def post_my_endpoint(request: config.My_Endpoint_Request)
 ### Adding the request logic
 The request logic should be added to an appropiately named function in [app_logic.py](app_logic.py).
 The structure of most endpoints tends to be quite similar but other types of requests are also possible and valid.
-Usually one wants to have some command executed in a container, perhaps with some arguments from the request. To do so, you needs to obtain the docker container object of the target. Additionally, you need to assemble a string with the desired command to be executed (special attention should be taken in regard with quotes and escaping characters). Then execute the command using `container.exec_run(...)`.
+Usually one wants to have some command executed in a container, perhaps with some arguments from the request.
+To do so, you needs to obtain the docker container object of the target. Additionally, you need to assemble a string with the desired command to be executed (special attention should be taken in regard with quotes and escaping characters).
+Then execute the command using `container.exec_run(...)`.
 Then return the relevant information (eg. if  the command has executed sucessfully? Output of the command?) back to the API client.
+
+## Troubleshooting
+In case commands that copy over logs from a container to the host fail due to insufficient permissions, make sure that the group of the [`logs`](logs) folder is set to docker(gid=988).
+Setting the permissions can be done with the following command: `chgrp 988 logs`.

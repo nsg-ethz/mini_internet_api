@@ -2,7 +2,7 @@ services:
   orchestration_api:
     build: .
     ports:
-    - '${ORCHESTRATION_API_PORT:-5432}:5432'
+    - '${ORCHESTRATION_API_PORT:-5432}:${PORT:-5432}'
     volumes:
       - ./:/app
       - ../platform/labs:/app/labs
@@ -12,4 +12,5 @@ services:
       - LOGS_DIR=/app/logs
       - CURR_LAB=demo
       - LAB_PREFIX=55
+      - PORT=${PORT:-5432}
     #entrypoint: ["docker", "info"]
