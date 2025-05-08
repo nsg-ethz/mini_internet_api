@@ -1,6 +1,6 @@
 FROM d_base_supervisor:latest
 
-RUN apk add --no-cache openssh-server openssh-client frr frr-rpki frr-pythontools softflowd libpcap-dev git make gcc musl-dev linux-headers build-base openssl-dev util-linux-dev libnfnetlink-dev ip6tables iptables lldpd rsyslog wireguard-tools \
+RUN apk add --no-cache openssh-server openssh-client frr frr-rpki frr-pythontools softflowd libpcap-dev git make gcc musl-dev linux-headers build-base openssl-dev util-linux-dev libnfnetlink-dev ip6tables iptables lldpd rsyslog \
     && ssh-keygen -A \
     && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd_config \
     && sed -i 's/#PrintMotd yes/PrintMotd no/g' /etc/ssh/sshd_config \
@@ -37,9 +37,8 @@ ENV VPN_OVSERVER_SLEEP=30
 COPY supervisord.conf /etc/supervisor/conf.d/processes.conf
 COPY looking_glass.sh /usr/local/bin/looking_glass
 COPY run_frr.sh /usr/local/bin/run_frr
-COPY wg_observer /usr/local/bin/wg_observer
 
-RUN chmod +x /usr/local/bin/looking_glass /usr/local/bin/run_frr /usr/local/bin/wg_observer
+RUN chmod +x /usr/local/bin/looking_glass /usr/local/bin/run_frr
 
 # add SNMP
 RUN apk add --no-cache net-snmp net-snmp-tools
