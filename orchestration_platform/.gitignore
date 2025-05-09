@@ -1,2 +1,3 @@
 logs/*
 labs/
+__pycache__/
