@@ -559,7 +559,7 @@ for ((k = 0; k < group_numbers; k++)); do
                             echo "address-family ipv4"
                             echo "discovery transport-address "${router_id%/*}""
                             echo "interface port_bb2-1"
-                            # echo "interface port_bb2-3"  ## TEMP_DISABLE_MPLS
+                            echo "interface port_bb2-3"  ## TEMP_DISABLE_MPLS
                             echo "exit"
                             echo "exit"
                             echo "exit"
@@ -695,7 +695,7 @@ for ((k = 0; k < group_numbers; k++)); do
                             echo "discovery transport-address "${router_id%/*}""
                             echo "interface port_bb1-8"
                             echo "interface port_bb2-1"
-                            # echo "interface port_bb2-4"  ## TEMP_DISABLE_MPLS
+                            echo "interface port_bb2-4"  ## TEMP_DISABLE_MPLS
                             echo "interface port_bb2-5"
                             echo "exit"
                             echo "exit"
