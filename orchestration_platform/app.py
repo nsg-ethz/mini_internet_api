@@ -135,6 +135,11 @@ def post_reset_buffer(request: config.RemoveChangeRequest):
     return app_logic.reset_buffer(request)
 
 
+@app.post("/reset_link")
+def post_reset_link(request: config.RemoveChangeRequest):
+    return app_logic.reset_link(request)
+
+
 
 @app.get("/link_state")
 def get_check_link_state(src: str, dst: str):

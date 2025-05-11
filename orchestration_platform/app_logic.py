@@ -315,6 +315,7 @@ def apply_frr_config_at(node: NodeID, frr_config: str):
 def get_IPS(nodetype: str):
     """Gets the highest IP for each device using DNS and returns them in a dict"""
     updated_ips = {}
+    requestnode = validate_and_get_NodeID(config.LAB_NAMES[0], "router")
     for device in config.LAB_NAMES:
         if nodetype == "host":
             dns_name = "host." + str(device) + f".group{config.LAB_PREFIX}"
@@ -324,9 +325,18 @@ def get_IPS(nodetype: str):
             raise Exception(f"No such nodetype: {nodetype}")
         # host containers dont have dig installed, so we query on the router.
         # as a sidenote: we could also directly check the interface IPs using docker exec
-        node = validate_and_get_NodeID(device, "router")
-        result = node.container.exec_run(f"dig +short {dns_name}")
+        # node = validate_and_get_NodeID(device, "router")
+        result = requestnode.container.exec_run(f"dig +short {dns_name}")
         ip_list = result.output.decode("utf-8").splitlines()
+        if result.exit_code != 0:
+            raise Exception(
+                {
+                    "device": device,
+                    "cmd": f"dig +short {dns_name}",
+                    "output": result.output.decode("utf-8"),
+                    "exit_code": result.exit_code,
+                }
+            )
         # TODO: In case a device has its interfaces currently down, this way of retrieving the IP will not work
         # Catch this and possibly fall back to lab parsing IP
         if ip_list:
@@ -339,7 +349,7 @@ def get_IPS(nodetype: str):
                     # If the IP address is not valid, we skip it
                     print(f"Invalid IP address {ip}")
                     pass
-            # print(ip_objects)
+            print(ip_objects)
             highest_ip = max(ip_objects)
             updated_ips[device] = str(highest_ip)
             print(f"Got IP for {device}{nodetype} to {updated_ips[device]}")
@@ -423,7 +433,9 @@ def add_loss(request: config.AddLossRequest):
 
         if exec_result.exit_code != 0:
             raise Exception(
-                {
+                {   
+                    "cmd": cmd,
+                    "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
                 }
             )
@@ -470,7 +482,8 @@ def rm_loss(request: config.RemoveChangeRequest):
 
         if exec_result.exit_code != 0:
             raise Exception(
-                {
+                {   
+                    "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
                 }
@@ -519,7 +532,9 @@ def add_delay(request: config.AddDelayRequest):
 
         if exec_result.exit_code != 0:
             raise Exception(
-                {
+                {   
+                    "cmd": cmd,
+                    "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
                 }
             )
@@ -566,7 +581,8 @@ def rm_delay(request: config.RemoveChangeRequest):
 
         if exec_result.exit_code != 0:
             raise Exception(
-                {
+                {   
+                    "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
                 }
@@ -874,7 +890,8 @@ def check_link_state(src: str, dst: str):
 
         if exec_result.exit_code != 0:
             raise Exception(
-                {
+                {   
+                    "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
                 }
@@ -1871,3 +1888,58 @@ def reset_buffer(request: config.RemoveChangeRequest):
         raise HTTPException(status_code=404, detail="Container not found")  # noqa: B904
     except docker.errors.APIError as e:  # type: ignore
         raise HTTPException(status_code=500, detail="Docker: " + str(e))  # noqa: B904
+
+
+def reset_link(request: config.RemoveChangeRequest):
+    """Reset the link parameters to their initial values.
+
+    Args:
+        request: RemoveChangeRequest object with link details
+
+    Returns:
+        dict: Command execution results
+
+    Raises:
+        HTTPException: If operation fails
+    """
+    try:
+        # Validate and get identifiers
+        src, dst = validate_and_get_NodeIDs(request.src, request.dst)
+
+        # Get the container object and interface
+        interface = get_interface_from_to(src, dst)
+
+        # Get the initial values from the configuration
+        initial_params = config.LAB_LINKS[frozenset({src.name, dst.name})]
+
+        # Command to reset link parameters to initial values
+        cmd = f"""/bin/bash -c '
+        tc qdisc del dev {interface} root || true; \
+        tc qdisc add dev {interface} root handle 1:0 netem delay {initial_params["delay"]} loss {initial_params["loss"]} ; \
+        tc qdisc add dev {interface} parent 1:1 handle 10: tbf rate {initial_params["bandwidth"]} burst {initial_params["burst"]} latency {initial_params["buffer"]}'"""
+
+        # Execute the command in the container
+        exec_result = src.container.exec_run(cmd)
+
+        if exec_result.exit_code != 0:
+            raise Exception(
+                {
+                    "output": exec_result.output.decode("utf-8"),
+                    "exit_code": exec_result.exit_code,
+                }
+            )
+
+        # Return the output of the command
+        return {
+            "output": exec_result.output.decode("utf-8"),
+            "exit_code": exec_result.exit_code,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
+    except docker.errors.NotFound:  # type: ignore
+        raise HTTPException(status_code=404, detail="Container not found")  # noqa: B904
+    except docker.errors.APIError as e:  # type: ignore
+        raise HTTPException(status_code=500, detail="Docker: " + str(e))  # noqa: B904
+
+
