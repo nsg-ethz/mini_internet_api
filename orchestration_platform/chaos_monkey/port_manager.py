@@ -12,7 +12,7 @@ class PortManager:
         """
         with self.lock:
             if not self.free_ports:
-                raise Exception("No free ports available")
+                return False
             port = self.free_ports.pop()
 
         # Schedule the port to be returned after the specified duration

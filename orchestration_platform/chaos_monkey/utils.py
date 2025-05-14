@@ -16,7 +16,7 @@ def get_random_server_and_clients(rng: random.Random, nodes: list, num_clients: 
     return server, clients
 
 
-def get_random_link(rng: random.Random, links: list):
+def get_random_link(rng: random.Random, links: dict):
     """
     Get a random link from the available ones.
     """
@@ -28,6 +28,14 @@ def get_random_node(rng: random.Random, nodes: list):
     Get a random node from the list of nodes.
     """
     return rng.choice(nodes)
+
+def get_random_nodes(rng: random.Random, nodes: list, num_nodes: int):
+    """
+    Get a random number of nodes from the list of nodes.
+    """
+    if num_nodes > len(nodes):
+        raise ValueError("Number of nodes exceeds available nodes")
+    return rng.sample(nodes, k=num_nodes)
 
 
 def get_server_and_client_IPs(server_node: str, client_nodes: list, ips: dict):
