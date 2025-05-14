@@ -201,7 +201,15 @@ def get_interface_from_to(src: NodeID, dst: NodeID):
     if frozenset({src.name, dst.name}) not in config.LAB_LINKS:
         raise Exception(f"No link exists between {src.name} and {dst.name}")
     # Utilize DNS to automatically get the proper iface
-    # TODO: Cache the responses to avoid unnecessary lookups
+    # Check if the interface is already cached
+    if not hasattr(get_interface_from_to, "interfaces"):
+        get_interface_from_to.interfaces = {}
+
+    cached_ifa = get_interface_from_to.interfaces.get((src.name, dst.name))
+    if cached_ifa:
+        return cached_ifa
+
+    # If not cached, obtain the interface
     target_IP = config.IPS[dst.name]
     print("target IP: ", target_IP)
     command = f"/bin/bash -c 'ip -o route get {target_IP} '"
@@ -212,7 +220,16 @@ def get_interface_from_to(src: NodeID, dst: NodeID):
     result = exec_result.output.decode("utf-8").split()
     print(result)
     # The interface is the 5th element in the output
-    iface = result[4]
+    iface = ""
+    for idx, word in enumerate(result):
+        if word == "dev":
+            iface = result[idx + 1]
+            break
+    if iface == "":
+        raise Exception(f"cant find interface in {result}")
+
+    # Cache the interface for future use
+    get_interface_from_to.interfaces[(src.name, dst.name)] = iface
     return iface
 
 
@@ -315,7 +332,7 @@ def apply_frr_config_at(node: NodeID, frr_config: str):
 def get_IPS(nodetype: str):
     """Gets the highest IP for each device using DNS and returns them in a dict"""
     updated_ips = {}
-    requestnode = validate_and_get_NodeID(config.LAB_NAMES[0], "router")
+    requestnode = validate_and_get_NodeID(config.LAB_NAMES[4], "router")
     for device in config.LAB_NAMES:
         if nodetype == "host":
             dns_name = "host." + str(device) + f".group{config.LAB_PREFIX}"
@@ -331,7 +348,7 @@ def get_IPS(nodetype: str):
         if result.exit_code != 0:
             raise Exception(
                 {
-                    "device": device,
+                    "device": config.LAB_NAMES[4],
                     "cmd": f"dig +short {dns_name}",
                     "output": result.output.decode("utf-8"),
                     "exit_code": result.exit_code,
@@ -1557,7 +1574,8 @@ def set_bandwidth(request: config.SetBandwidthRequest):
         if exec_result.exit_code != 0:
             # TODO: Reset link to default values if the command fails
             raise Exception(
-                {
+                {   
+                    "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
                 }
@@ -1595,6 +1613,7 @@ def set_buffer(request: config.SetBufferRequest):
 
         # Get the container object and interface
         interface = get_interface_from_to(src, dst)
+        
 
         # Check the current link state to preserve existing values
         current_params = check_link_state(src.name, dst.name)
@@ -1696,21 +1715,36 @@ def execute(request: config.ExecuteRequest):
             # Validate and get container names
             node = validate_and_get_NodeID(request.node, "host")
 
-        exec_result = node.container.exec_run(request.cmd)
+        if request.detach:
+            exec_id = client.api.exec_create(node.containername, request.cmd)
+            id = generate_random_id()
+            config.EVENT_DATABASE[id] = {
+                "exec_id": exec_id["Id"],
+                "container": node.containername,
+                "json": True,
+                "endtime": "-1",
+            }
 
-        if exec_result.exit_code != 0:
-            raise Exception(
-                {
-                    "output": exec_result.output.decode("utf-8"),
-                    "exit_code": exec_result.exit_code,
-                }
-            )
+            client.api.exec_start(exec_id, detach=True)
+            
+            return {"ID": id}
+        else:
+            exec_result = node.container.exec_run(request.cmd, detach=request.detach)
+        
+            if exec_result.exit_code != 0:
+                raise Exception(
+                    {   
+                        "cmd": request.cmd,
+                        "output": exec_result.output.decode("utf-8"),
+                        "exit_code": exec_result.exit_code,
+                    }
+                )
 
-        # Return the output of the command
-        return {
-            "output": exec_result.output.decode("utf-8"),
-            "exit_code": exec_result.exit_code,
-        }
+            # Return the output of the command
+            return {
+                "output": exec_result.output.decode("utf-8"),
+                "exit_code": exec_result.exit_code,
+            }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
@@ -1759,7 +1793,8 @@ def reset_bandwidth(request: config.RemoveChangeRequest):
 
         if exec_result.exit_code != 0:
             raise Exception(
-                {
+                {   
+                    "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
                 }
@@ -1814,7 +1849,8 @@ def reset_burst(request: config.RemoveChangeRequest):
 
         if exec_result.exit_code != 0:
             raise Exception(
-                {
+                {   
+                    "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
                 }
@@ -1870,7 +1906,8 @@ def reset_buffer(request: config.RemoveChangeRequest):
 
         if exec_result.exit_code != 0:
             raise Exception(
-                {
+                {   
+                    "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
                 }
@@ -1923,12 +1960,12 @@ def reset_link(request: config.RemoveChangeRequest):
 
         if exec_result.exit_code != 0:
             raise Exception(
-                {
+                {   
+                    "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
                 }
             )
-
         # Return the output of the command
         return {
             "output": exec_result.output.decode("utf-8"),

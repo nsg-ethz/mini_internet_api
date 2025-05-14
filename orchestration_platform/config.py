@@ -136,3 +136,4 @@ class ExecuteRequest(BaseModel):
     node: str
     router: bool
     cmd: str
+    detach: bool = False
