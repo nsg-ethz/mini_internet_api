@@ -211,22 +211,21 @@ def get_interface_from_to(src: NodeID, dst: NodeID):
 
     # If not cached, obtain the interface
     target_IP = config.IPS[dst.name]
-    print("target IP: ", target_IP)
+    # print("target IP: ", target_IP)
     command = f"/bin/bash -c 'ip -o route get {target_IP} '"
-    print(command)
-    print(src.containername)
+    # print(command)
+    # print(src.containername)
 
     exec_result = src.container.exec_run(command)
     result = exec_result.output.decode("utf-8").split()
     print(result)
-    # The interface is the 5th element in the output
     iface = ""
     for idx, word in enumerate(result):
         if word == "dev":
             iface = result[idx + 1]
             break
     if iface == "":
-        raise Exception(f"cant find interface in {result}")
+        raise Exception(f"cant find interface from {src.name} to {dst.name} in {result}, cmd: {command}")
 
     # Cache the interface for future use
     get_interface_from_to.interfaces[(src.name, dst.name)] = iface
@@ -354,8 +353,7 @@ def get_IPS(nodetype: str):
                     "exit_code": result.exit_code,
                 }
             )
-        # TODO: In case a device has its interfaces currently down, this way of retrieving the IP will not work
-        # Catch this and possibly fall back to lab parsing IP
+        # NOTE: In case a device has its interfaces currently down, this way of retrieving the IP will not work
         if ip_list:
             # print(f"IPs for {device}: {ip_list}")
             ip_objects = []
@@ -451,6 +449,7 @@ def add_loss(request: config.AddLossRequest):
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
+                    "node": src.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -500,6 +499,7 @@ def rm_loss(request: config.RemoveChangeRequest):
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
+                    "node": src.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -550,6 +550,7 @@ def add_delay(request: config.AddDelayRequest):
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
+                    "node": src.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -599,6 +600,7 @@ def rm_delay(request: config.RemoveChangeRequest):
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
+                    "node": src.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -908,6 +910,7 @@ def check_link_state(src: str, dst: str):
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
+                    "node": src.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -1575,6 +1578,7 @@ def set_bandwidth(request: config.SetBandwidthRequest):
             # TODO: Reset link to default values if the command fails
             raise Exception(
                 {   
+                    "node": src.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -1794,6 +1798,7 @@ def reset_bandwidth(request: config.RemoveChangeRequest):
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
+                    "node": src.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -1850,6 +1855,7 @@ def reset_burst(request: config.RemoveChangeRequest):
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
+                    "node": src.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -1907,6 +1913,7 @@ def reset_buffer(request: config.RemoveChangeRequest):
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
+                    "node": src.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -1961,6 +1968,7 @@ def reset_link(request: config.RemoveChangeRequest):
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
+                    "node": src.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
