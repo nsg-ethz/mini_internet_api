@@ -10,7 +10,8 @@ import time
 from datetime import datetime
 
 import requests
-from event import Event
+from abstract_event import AbstractEvent
+from undo_event import UndoEvent
 from link_lock import Link_Lock
 from port_manager import PortManager
 from utils import (
@@ -20,6 +21,7 @@ from utils import (
     get_random_server_and_clients,
     get_server_and_client_IPs,
     get_src_dst_from_link,
+    get_event_duration,
 )
 
 # Global variables
@@ -27,10 +29,21 @@ NODES = ()
 LINKS = {}
 ROUTER_IPS = {}
 HOST_IPS = {}
-API_URL = None  # Global variable for the API URL
+API_URL = None
 INITAL_SNAPSHOT_ID = ""
 PORT_MANAGER = PortManager(8000, 8005)
 LOGS_DIR = os.path.join(os.path.dirname(__file__), "logs")
+
+# Constants that refer to the events
+
+# Background traffic will have a duration that is uniformly distributed around an avg, this specifies how much longer/shorter the duration can be
+BACKGROUND_TRAFFIC_DURATION_SPREAD = 25 
+COMPLEX_LOSS_MIN_DURATION = 20
+COMPLEX_LOSS_MAX_DURATION = 50
+MIN_DELAY = 2  # ms
+MAX_DELAY = 300  # ms
+MIN_BANDWIDTH = 100 # kbps
+MAX_BANDWIDTH = 10000 # kbps
 
 stop_event = threading.Event()
 
@@ -148,6 +161,8 @@ def gen_webserver_traffic_cmd(
 
     return cmd
 
+def get_traffic_duration(rng: random.Random, rate: float):
+    return rng.randint(int((1/rate)-BACKGROUND_TRAFFIC_DURATION_SPREAD), int((1/rate)+BACKGROUND_TRAFFIC_DURATION_SPREAD))
 
 def gen_videostreaming_traffic_cmd(
     server_node: str, client_nodes: list, duration: int, port: int, seed: int
@@ -169,13 +184,13 @@ def gen_videostreaming_traffic_cmd(
 
     return cmd
 
-def gen_videostreaming_traffic(rng: random.Random):
+def gen_videostreaming_traffic(rng: random.Random, rate: float):
     """
     Function to generate a flowgrind command that simulates a webserver serving multiple clients.
     This function can be customized to generate specific traffic patterns.
     """
     server, clients = get_random_server_and_clients(rng, NODES)
-    duration = rng.randint(10, 60)
+    duration = get_traffic_duration(rng, rate)
     print(f"Simulating videostreaming background traffic from {server} to {clients} for {duration} seconds")
     port = PORT_MANAGER.get_port(duration=duration+1)# add 1 second to avoid race conditions.
     if not port:
@@ -185,9 +200,9 @@ def gen_videostreaming_traffic(rng: random.Random):
     print(f"Generated command: {cmd}")
     perform_request("/execute", {"node": server, "router": False, "cmd": cmd, "detach": True})
 
-def gen_webserver_traffic(rng: random.Random):
+def gen_webserver_traffic(rng: random.Random, rate: float):
     server, clients = get_random_server_and_clients(rng, NODES)
-    duration = rng.randint(10, 60)
+    duration = get_traffic_duration(rng, rate)
     print(f"Simulating webserver background traffic from {server} to {clients} for {duration} seconds")
     port = PORT_MANAGER.get_port(duration=duration+1)# add 1 second to avoid race conditions.
     if not port:
@@ -197,21 +212,19 @@ def gen_webserver_traffic(rng: random.Random):
     print(f"Generated command: {cmd}")
     perform_request("/execute", {"node": server, "router": False, "cmd": cmd, "detach": True})
 
-def background_traffic(rng: random.Random):
+def background_traffic(rng: random.Random, rate: float):
     """
     Function to simulate background traffic in the network.
     """
     while not stop_event.is_set():  # Check the stop flag
         # Randomly choose between webserver and videostreaming traffic
         if rng.random() < 0.5:
-            gen_webserver_traffic(rng)
+            gen_webserver_traffic(rng, rate)
         else:
-            gen_videostreaming_traffic(rng)
+            gen_videostreaming_traffic(rng, rate)
 
         # Sleep for a random interval before generating the next traffic
-        param  = 1/35
-        sleeptime = rng.expovariate(param)
-        print(f"sleeping for {sleeptime}")
+        sleeptime = rng.expovariate(rate)
         time.sleep(sleeptime)  # assuming the event duration has an average of 35 seconds
 
 def fire_event_exponentially_distributed(
@@ -231,17 +244,14 @@ def fire_event_exponentially_distributed(
         interval = rng.expovariate(rate)
         time.sleep(interval)  # Wait for the interval duration
         event(args)
-        # TODO: add some way to catch errors of the event and abort the run in case of errors
+        # FIXME: add some way to catch errors of the event and abort the run in case of errors
         # eg by event returning a bool or raising an exception
 
-# TODO: think about if we want to also do the event in the other direction
 
 def elementary_loss(rng: random.Random, link: dict):
     """An event that produces packet loss of multiple consecutive packets, as per the Paper"""
     # TODO: add citation:
     src, dst = get_src_dst_from_link(link)
-    # TODO: think about how to deal with the case where the chaos monkey also has an event on the link
-    # Probably a per thread lock that this event obtains during the whole duration and chaos monkey obtains when setting / resetting the event
 
     link["loss_lock"].acquire_modify()
     # # get current loss rate as the event might overlap with another one
@@ -260,10 +270,10 @@ def elementary_loss(rng: random.Random, link: dict):
 
 def complex_loss(rng: random.Random, link: dict):
     """A loss event consisting of multiple elemtary loss events"""
-    max_duration = rng.randint(20, 50)  # seconds
+    max_duration = rng.randint(COMPLEX_LOSS_MIN_DURATION, COMPLEX_LOSS_MAX_DURATION)  # seconds
     #  FIXME: maybe log this
     while max_duration > 0:
-        elementary_loss(rng, hosts)
+        elementary_loss(rng, link)
         interval = rng.expovariate(1/5)
         max_duration -= interval
         time.sleep(interval)
@@ -272,7 +282,7 @@ def loss_event(args: list):
     # pick out a link
     rng = args[0]
     link = get_random_link(rng, LINKS)
-    if(rng.random() % 10 == 0):
+    if(rng.random() < 0.1== 0):
         # in 10% of cases we trigger a complex loss event
         complex_loss(rng, link)
     else:
@@ -298,7 +308,7 @@ def delay_spike(rng: random.Random, link):
 
     perform_request("add_delay", {"src": src, "dst": dst, "delay": delay_size})
     # remaining = timestamp - time.time_ns()
-    # TODO: make this somewhat more rectangular
+    # FIXME: make this somewhat more rectangular
     # if remaining/1000 > delay_size 
     # time.sleep(remaining/(1000*1000))
     perform_request("add_delay", {"src": src, "dst": dst, "delay": curr_delay})
@@ -310,18 +320,12 @@ def delay_event(args: list):
     delay_spike(rng, link)
 
 
-def get_event_duration(rng: random.Random, min_duration: int = 5, max_duration: int = 60):
-    """
-    Function to get a random event duration.
-    """
-    return rng.randint(min_duration, max_duration)  # seconds
-
 def schedule_undo_event(duration: int, action, args: list):
     """
     Function to schedule an undo event
     """
     unroll_time = time.time() + duration
-    event = Event(unroll_time, action, args)
+    event = UndoEvent(unroll_time, action, args)
     event_queue.put(event)
 
 def simple_undo(args: list):
@@ -345,136 +349,170 @@ def undo_link_loss_change(args: list):
 # Config changes
 ##############################
 
-def add_bogus_static_route(rng: random.Random):
-    """
-    Function to add a bogus static route to a router.
-    The static route is added to the router with a random valid IP subnet out of the available IPs
-    """
-    target, destination, next_hop = get_random_nodes(rng, NODES, 3)
-    # get a random IP from the available IPs
-    dest_ip = ROUTER_IPS[destination]   
-    next_hop_ip = ROUTER_IPS[next_hop]
-    # get a random subnet mask
-    subnet_mask = rng.choice(["/16", "/24"])
-    # create the destination IP
-    ip_parts = list(map(int, dest_ip.split('.')))
-    subnet_bits = int(subnet_mask[1:])
-    mask = (0xFFFFFFFF << (32 - subnet_bits)) & 0xFFFFFFFF
-    network_ip = [
-        (ip_parts[0] & (mask >> 24)) & 0xFF,
-        (ip_parts[1] & (mask >> 16)) & 0xFF,
-        0,
-        0,
-    ]
-    destination = '.'.join(map(str, network_ip)) + subnet_mask
-    # print(f"add_static_route on {target}, dest {destination} next hop {next_hop_ip}")
+class AddBogusStaticRouteEvent(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=30, max_duration=120)  # Set min and max durations
 
-    perform_request("add_static_route", {"node":target, "destination": destination, "next_hop":next_hop_ip})
-    duration = get_event_duration(rng, 30, 120)
-    schedule_undo_event(duration, simple_undo, ["rm_static_route", {"node":target, "destination": destination, "next_hop":next_hop_ip}])
+    def execute(self, rng: random.Random):
+        """
+        Function to add a valid but wrong static route to a router.
+        """
+        target, destination, next_hop = get_random_nodes(rng, NODES, 3)
+        # Get a random IP from the available IPs
+        dest_ip = ROUTER_IPS[destination]
+        next_hop_ip = ROUTER_IPS[next_hop]
+        # Get a random subnet mask
+        subnet_mask = rng.choice(["/16", "/24"])
+        # Create the destination IP
+        ip_parts = list(map(int, dest_ip.split('.')))
+        subnet_bits = int(subnet_mask[1:])
+        mask = (0xFFFFFFFF << (32 - subnet_bits)) & 0xFFFFFFFF
+        network_ip = [
+            (ip_parts[0] & (mask >> 24)) & 0xFF,
+            (ip_parts[1] & (mask >> 16)) & 0xFF,
+            0,
+            0,
+        ]
+        destination = '.'.join(map(str, network_ip)) + subnet_mask
+        perform_request("add_static_route", {"node": target, "destination": destination, "next_hop": next_hop_ip})
+        duration = rng.randint(self.min_duration, self.max_duration)
+        schedule_undo_event(duration, simple_undo, ["rm_static_route", {"node": target, "destination": destination, "next_hop": next_hop_ip}])
 
-# NOTE: this ospf change will not be undone
-def change_ospf_weight(rng: random.Random):
-    link = get_random_link(rng, LINKS)
-    src, dst = get_src_dst_from_link(link)
-    cost = rng.randint(1,100)
-    perform_request("change_ospf_cost", {"src":src, "dst": dst, "cost": cost})
+class ChangeOspfWeightEvent(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=0, max_duration=0)  # No duration, permanent change
 
-def increase_delay(rng: random.Random):
-    """
-    Function to increase the delay on a random link.
-    """
-    min_delay = 2  # ms
-    max_delay = 300  # ms
-    link = get_random_link(rng, LINKS)
-    src, dst = get_src_dst_from_link(link)
-    delay = rng.randint(min_delay, max_delay)  # ms
-    link["delay_lock"].acquire_modify()
-    perform_request("add_delay", {"src": src, "dst": dst, "delay": delay})
-    link["delay_lock"].release_modify()
-
-def disconnect_random_link(rng: random.Random):
-    """
-    Function to disconnect a random link.
-    """
-    link = get_random_link(rng, LINKS)
-    if(link["loss_lock"].acquire_in_use()):
+    # NOTE: this change will not be undone until the script terminates
+    def execute(self, rng: random.Random):
+        """
+        Function to change the OSPF weight on a random link.
+        """
+        link = get_random_link(rng, LINKS)
         src, dst = get_src_dst_from_link(link)
-        link["loss_lock"].acquire_modify()
-        # get current loss rate as the event might overlap with another one
-        resp = requests.get(f"{API_URL}/link_state?src={src}&dst={dst}")    
-        if resp.status_code != 200:
-            print(f"Error: {resp.status_code} - {resp.text}")
-            link["loss_lock"].release_modify()
-            return
-        curr_loss = resp.json().get("loss_rate", 0)
-        perform_request("add_loss", {"src": src, "dst": dst, "loss_rate": 100})
-        link["loss_lock"].release_modify()
-        duration = rng.randint(5, 30)  # seconds
-        schedule_undo_event(duration, undo_link_loss_change, [link, "add_loss", {"src": src, "dst": dst, "loss_rate": curr_loss}])
+        cost = rng.randint(1, 100)
+        perform_request("change_ospf_cost", {"src": src, "dst": dst, "cost": cost})
 
+# NOTE: this change will not be undone until the script terminates
+class IncreaseDelayEvent(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=0.5, max_duration=0.5)  # Set min and max durations
 
-
-def disconnect_random_router(rng: random.Random):
-    """
-    Function to disconnect a random node.
-    """
-    host = get_random_node(rng, NODES)
-    perform_request("disconnect_router", {"node": host})
-    duration = rng.randint(60, 300)  # seconds
-    schedule_undo_event(duration, simple_undo, ["connect_router", {"node": host}])
-
-def make_link_lossy(rng: random.Random):
-    """
-    Function to make a random link lossy.
-    """
-    link = get_random_link(rng, LINKS)
-    if(link["loss_lock"].acquire_in_use()):
+    def execute(self, rng: random.Random):
+        """
+        Function to increase the delay on a random link.
+        """
+        link = get_random_link(rng, LINKS)
         src, dst = get_src_dst_from_link(link)
-        link["loss_lock"].acquire_modify()
-        # get current loss rate as the event might overlap with another one
-        resp = requests.get(f"{API_URL}/link_state?src={src}&dst={dst}")    
-        if resp.status_code != 200:
-            print(f"Error: {resp.status_code} - {resp.text}")
-            link["loss_lock"].release_modify()
-            return
-        curr_loss = resp.json().get("loss_rate", 0)
-        rate = rng.randint(0, 100)
-        perform_request("add_loss", {"src": src, "dst": dst, "loss_rate": rate})
-        link["loss_lock"].release_modify()
-        duration = get_event_duration(rng, max_duration=30)  # seconds
-        schedule_undo_event(duration, undo_link_loss_change, [link, "add_loss", {"src": src, "dst": dst, "loss_rate": curr_loss}])
+        delay = rng.randint(MIN_DELAY, MAX_DELAY)  # ms
+        link["delay_lock"].acquire_modify()
+        perform_request("add_delay", {"src": src, "dst": dst, "delay": delay})
+        link["delay_lock"].release_modify()
 
-def change_bandwidth(rng: random.Random):
-    """
-    Function to change the bandwidth on a random link.
-    """
-    link = get_random_link(rng, LINKS)
-    src, dst = get_src_dst_from_link(link)
-    bandwidth = rng.randint(100, 10000)  # kbps
-    perform_request("set_bandwidth", {"src": src, "dst": dst, "bandwidth": bandwidth})
+class DisconnectRandomLinkEvent(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=5, max_duration=30)  # Set min and max durations
+
+    def execute(self, rng: random.Random):
+        """
+        Function to disconnect a random link.
+        """
+        link = get_random_link(rng, LINKS)
+        if link["loss_lock"].acquire_in_use():
+            src, dst = get_src_dst_from_link(link)
+            link["loss_lock"].acquire_modify()
+            resp = requests.get(f"{API_URL}/link_state?src={src}&dst={dst}")
+            if resp.status_code != 200:
+                print(f"Error: {resp.status_code} - {resp.text}")
+                link["loss_lock"].release_modify()
+                return
+            curr_loss = resp.json().get("loss_rate", 0)
+            perform_request("add_loss", {"src": src, "dst": dst, "loss_rate": 100})
+            link["loss_lock"].release_modify()
+            duration = rng.randint(self.min_duration, self.max_duration)
+            schedule_undo_event(duration, undo_link_loss_change, [link, "add_loss", {"src": src, "dst": dst, "loss_rate": curr_loss}])
+
+
+
+class DisconnectRandomRouterEvent(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=60, max_duration=300)  # Set min and max durations
+
+    def execute(self, rng:random.Random):
+        """
+        Function to disconnect a random node.
+        """
+        host = get_random_node(rng, NODES)
+        perform_request("disconnect_router", {"node": host})
+        duration = rng.randint(self.min_duration, self.max_duration)  # seconds
+        schedule_undo_event(duration, simple_undo, ["connect_router", {"node": host}])
+
+class MakeLinkLossyEvent(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=10, max_duration=30)  # Set min and max durations
+
+    def execute(self, rng: random.Random):
+        """
+        Function to make a random link lossy.
+        """
+        link = get_random_link(rng, LINKS)
+        if link["loss_lock"].acquire_in_use():
+            src, dst = get_src_dst_from_link(link)
+            link["loss_lock"].acquire_modify()
+            # Get current loss rate as the event might overlap with another one
+            resp = requests.get(f"{API_URL}/link_state?src={src}&dst={dst}")
+            if resp.status_code != 200:
+                print(f"Error: {resp.status_code} - {resp.text}")
+                link["loss_lock"].release_modify()
+                return
+            curr_loss = resp.json().get("loss_rate", 0)
+            rate = rng.randint(1, 100)
+            perform_request("add_loss", {"src": src, "dst": dst, "loss_rate": rate})
+            link["loss_lock"].release_modify()
+            duration = rng.randint(self.min_duration, self.max_duration)
+            schedule_undo_event(duration, undo_link_loss_change, [link, "add_loss", {"src": src, "dst": dst, "loss_rate": curr_loss}])
+
+
+class ChangeBandwidthEvent(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=0, max_duration=0)  # Set min and max durations
     
+    # NOTE: this change will not be undone until the script terminates
+    def execute(self, rng: random.Random):
+        """
+        Function to change the bandwidth on a random link.
+        """
+        link = get_random_link(rng, LINKS)
+        src, dst = get_src_dst_from_link(link)
+        bandwidth = rng.randint(MIN_BANDWIDTH, MAX_BANDWIDTH)  # kbps
+        perform_request("set_bandwidth", {"src": src, "dst": dst, "bandwidth": bandwidth})    
 
 
 def chaos_monkey(rng: random.Random):
     """
     Main function to run the chaos monkey.
     """
+    chaos_events = [
+        AddBogusStaticRouteEvent(),
+        ChangeOspfWeightEvent(),
+        IncreaseDelayEvent(),
+        DisconnectRandomLinkEvent(),
+        DisconnectRandomRouterEvent(),
+        MakeLinkLossyEvent(),
+        ChangeBandwidthEvent(),
+    ]
+
+    # Calculate the average duration for all events
+    average_duration = sum(event.get_average_duration() for event in chaos_events) / len(chaos_events)
+
+    # Calculate the rate as the reciprocal of the average duration
+    chaos_rate = 1 / average_duration
     while not stop_event.is_set():
         # Randomly choose an event to trigger
-        event = rng.choice(
-            [
-                add_bogus_static_route,
-                change_ospf_weight,
-                increase_delay,
-                disconnect_random_link,
-                disconnect_random_router,
-                make_link_lossy,
-                change_bandwidth,
+        event = rng.choice(chaos_events)
+        event.execute(rng)  # Call the event function
+        time.sleep(rng.expovariate(chaos_rate))
+        
 
-            ]
-        )
-        event(rng)  # Call the event function, it will undo itself after a random duration
 
 
 
@@ -488,8 +526,9 @@ def event_unroller():
             event = event_queue.get(timeout=1)
             now = time.time()
             if event.unroll_time > now:
-                # Wait until the event's unroll time
-                time.sleep(event.unroll_time - now)
+                # Wait until the event's unroll time, checking regularly if the stop event is set
+                while not stop_event.is_set() and time.time() < event.unroll_time:
+                    time.sleep(1)
             # Debugging: Check event details
             # print(f"Unrolling event: {event}")
             # print(f"Event args: {event.args}, type: {type(event.args)}")
@@ -574,6 +613,15 @@ if __name__ == "__main__":
     )
     # If a custom seed is needed for traffic generation
     # parser.add_argument("--traffic_seed", type=int, default=42, help="Random seed for reproducibility of traffic generation")
+    parser.add_argument(
+        "--loss_rate", type=float, default=1/8, help="Rate of loss events (default: 1/8 events per second)"
+    )
+    parser.add_argument(
+        "--delay_rate", type=float, default=1/8, help="Rate of delay events (default: 1/8 events per second)"
+    )
+    parser.add_argument(
+        "--traffic_rate", type=float, default=1/35, help="Rate and average duration of generated background_traffic (default: 1/35 events per second)"
+    )
     args = parser.parse_args()
 
     # Set the global API_URL
@@ -588,15 +636,15 @@ if __name__ == "__main__":
 
     # Start the background traffic in a separate thread
     traffic_thread = threading.Thread(
-        target=background_traffic, daemon=True, args=(rng_traffic,), name="TrafficGenerator"
+        target=background_traffic, daemon=True, args=(rng_traffic, args.traffic_rate), name="TrafficGenerator"
     )
     traffic_thread.start()
 
     # add small loss and delay events all over
-    loss_thread = threading.Thread(target = fire_event_exponentially_distributed, args=(rng_loss , 1/8, loss_event, []), name="LossGenerator", daemon=True)
+    loss_thread = threading.Thread(target = fire_event_exponentially_distributed, args=(rng_loss , args.loss_rate, loss_event, []), name="LossGenerator", daemon=True)
     loss_thread.start()
 
-    delay_thread = threading.Thread(target=fire_event_exponentially_distributed, args=(rng_delay, 1/8, delay_event, []), name="DelayGenerator", daemon=True)
+    delay_thread = threading.Thread(target=fire_event_exponentially_distributed, args=(rng_delay, args.delay_rate, delay_event, []), name="DelayGenerator", daemon=True)
     delay_thread.start()
     # while True:
     #     time.sleep(1)

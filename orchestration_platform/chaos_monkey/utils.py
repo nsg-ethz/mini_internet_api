@@ -52,3 +52,10 @@ def get_src_dst_from_link(link: dict):
     Get the source and destination from a link dictionary.
     """
     return (link["src"], link["dst"])
+
+
+def get_event_duration(rng: random.Random, min_duration, max_duration):
+    """
+    Function to get a random event duration.
+    """
+    return rng.randint(min_duration, max_duration)  # seconds

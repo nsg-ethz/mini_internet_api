@@ -1,5 +1,5 @@
 
-class Event:
+class UndoEvent:
     def __init__(self, unroll_time, action, args):
         self.unroll_time = unroll_time  # Timestamp when the event should be unrolled
         self.action = action  # Function to execute
