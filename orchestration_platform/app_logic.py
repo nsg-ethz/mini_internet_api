@@ -1709,7 +1709,7 @@ def set_burst(request: config.SetBurstRequest):
 
 
 def execute(request: config.ExecuteRequest):
-    """Execute a command on a router."""
+    """Execute a command on a container."""
     try:
         node = None
         if request.router:
