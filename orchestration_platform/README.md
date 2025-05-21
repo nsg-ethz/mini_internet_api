@@ -15,7 +15,7 @@ To change the port within the container set the `PORT` environment variable (eg.
 
 #### Setting up the container
 
-We provide a simple docker compose script to bring up the API server. If another topology than `demo` is used, change the relevant environment variables in the [docker-compose](docker_compose.yml).
+We provide a simple docker compose script to bring up the API server. If another topology than `demo` is used, change the relevant environment variables in the [docker-compose](docker_compose.yml). The docker socket under `/var/run/docker.sock` must belong to the same groupid (the docker group, see [this](https://docs.docker.com/engine/install/linux-postinstall/)) that is specified in the [Dockerfile](Dockerfile). This is necessary because we're running a Docker-out-of-Docker setup (see [this](https://tdongsi.github.io/blog/2017/04/23/docker-out-of-docker/) for an explanation).
 
 ```bash
 docker compose up -d
