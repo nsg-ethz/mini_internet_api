@@ -155,7 +155,7 @@ def gen_webserver_traffic_cmd(
     # What we could do is obtain the flowgrind output and parse it
 
     # Adapted from the manpages example (https://manpages.ubuntu.com/manpages/xenial/man1/flowgrind.1.html) link to src there(www.3gpp...) is dead however
-    cmd = f"flowgrind -n {len(client_nodes)}"
+    cmd = f"flowgrind -q -n {len(client_nodes)}"
     for flow_id, client_ip in enumerate(client_ips):
         cmd += f" -F {flow_id} -J {seed} -H s={server_ip}/{server_ip}:{port},d={client_ip}/{client_ip}:{port} -T s={duration} -G s=q:C:350 -G s=p:L:9055:115.17 -U b=100000"
 
@@ -178,7 +178,7 @@ def gen_videostreaming_traffic_cmd(
     # What we could do is obtain the flowgrind output and parse it
 
     # Adapted from the manpages example (https://manpages.ubuntu.com/manpages/xenial/man1/flowgrind.1.html) link to src there(www.3gpp...) is dead however
-    cmd = f"flowgrind -n {len(client_nodes)}"
+    cmd = f"flowgrind -q -n {len(client_nodes)}"
     for flow_id, client_ip in enumerate(client_ips):
         cmd += f" -F {flow_id} -J {seed} -H s={server_ip}/{server_ip}:{port},d={client_ip}/{client_ip}:{port} -T s={duration} -G s=q:C:800 -G s=g:N:0.008:0.001"
 
