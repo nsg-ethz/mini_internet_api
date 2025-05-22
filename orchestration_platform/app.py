@@ -191,6 +191,10 @@ def get_links():
     links = [{"src": list(link)[0], "dst": list(link)[1], "details": details} for link, details in config.LAB_LINKS.items()]
     return {"links": links}
 
+@app.get("/events")
+def get_events():
+    return config.EVENT_DATABASE
+
 # Run the app with Uvicorn
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=config.PORT)
