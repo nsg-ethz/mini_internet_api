@@ -331,7 +331,7 @@ def apply_frr_config_at(node: NodeID, frr_config: str):
 def get_IPS(nodetype: str):
     """Gets the highest IP for each device using DNS and returns them in a dict"""
     updated_ips = {}
-    requestnode = validate_and_get_NodeID(config.LAB_NAMES[4], "router")
+    requestnode = validate_and_get_NodeID(config.LAB_NAMES[0], "router")
     for device in config.LAB_NAMES:
         if nodetype == "host":
             dns_name = "host." + str(device) + f".group{config.LAB_PREFIX}"
@@ -403,12 +403,16 @@ def change_lab(request: config.ChangeLabRequest):
     try:
         # Only start changing global variables once we know that a correct lab was requested, above function would fail if not
         # Pretty sure we dont need the temporary tuple but better safe than sorry
-        (new_LAB_PREFIX, new_LAB_NAMES) = lab_parser.get_labnames(
+        (new_LAB_NAMES, links) = lab_parser.get_labnames_links(
             request.lab_name, request.selected_AS
         )
         config.CURR_LAB = request.lab_name
-        (config.LAB_PREFIX, config.LAB_NAMES) = (new_LAB_PREFIX, new_LAB_NAMES)
-        config.IPS = get_IPS("router")
+        (config.LAB_PREFIX, config.LAB_NAMES) = (request.selected_AS, new_LAB_NAMES)
+        # use DNS if available
+        if config.CURR_LAB == "demo":
+            config.IPS = get_IPS("router")
+        else:
+            config.IPS = lab_parser.get_ips()
         # Potentially also actually change the running network lab, probably something like:
         # this command would only work if the API is running natively
         # startub_lab_path = f"{path_to_repo}/platform/startup.sh"
