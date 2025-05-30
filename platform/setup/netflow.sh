@@ -57,8 +57,8 @@ for ((k=0;k<group_numbers;k++)); do
 
                 iface=$(echo "$line" | awk -F': ' '{print $2}')
 
-                # TODO: check with tunnel lab
-                if  [[ $iface == lo ]] || [[ $iface == netflow* ]] || [[ $iface == sit* ]] || [[ $iface == gre* ]] || [[ $iface == gretap* ]] || [[ $iface == erspan* ]]; then
+                # currently no NetFlow data collected from tunnels (e.g., t_l1-1_dcn1-1)
+                if  [[ $iface == t_* ]] || [[ $iface == lo ]] || [[ $iface == netflow* ]] || [[ $iface == sit* ]] || [[ $iface == gre* ]] || [[ $iface == gretap* ]] || [[ $iface == erspan* ]]; then
                     continue
                 fi
 
@@ -67,7 +67,7 @@ for ((k=0;k<group_numbers;k++)); do
                 # filter out, only relevant interfaces
                 mac_address=$(echo "$line" | grep -oP 'ether \K[\w:]+')
                 iface_base=${iface%%@*}
-                
+
                 # echo "$rname" "$iface" "$iface_base" "$mac_address"
                 docker exec "$group_number"_"$rname"router softflowd -i "$iface_base" -n "$main_ip":9996 -p /var/run/softflowd"$j".pid -t general=5s -m 1 -v 10 -T ether ether src "$mac_address" or ether dst "$mac_address"
 
