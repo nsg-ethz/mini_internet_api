@@ -37,6 +37,9 @@ for ((k=0;k<group_numbers;k++)); do
         # start snmpd on each router container
         docker exec "${group_number}"_"${rname}"router snmpd
 
+        # sleep a bit to give SNMP agent time to start before LLDP tries to use SNMP
+        sleep 1
+
         # start lldpd on each router container
         docker exec "${group_number}"_"${rname}"router lldpd -c -x -M 4
 
