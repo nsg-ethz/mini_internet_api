@@ -526,9 +526,10 @@ def event_unroller():
             event = event_queue.get(timeout=1)
             now = time.time()
             if event.unroll_time > now:
-                # Wait until the event's unroll time, checking regularly if the stop event is set
-                while not stop_event.is_set() and time.time() < event.unroll_time:
-                    time.sleep(1)
+                # keep checking for new events
+                event_queue.put(event)
+                time.sleep(0.5)  # Sleep for a short time to avoid busy waiting
+                continue
             # Debugging: Check event details
             # print(f"Unrolling event: {event}")
             # print(f"Event args: {event.args}, type: {type(event.args)}")
