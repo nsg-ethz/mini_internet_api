@@ -34,16 +34,28 @@ INITAL_SNAPSHOT_ID = ""
 PORT_MANAGER = PortManager(8000, 8005)
 LOGS_DIR = os.path.join(os.path.dirname(__file__), "logs")
 
-# Constants that refer to the events
+# Constants that refer to the chaos monkey events
+STATIC_ROUTE_MIN_DURATION = 30
+STATIC_ROUTE_MAX_DURATION = 120
+DISCONNECT_RANDOM_LINK_MIN_DURATION = 5
+DISCONNECT_RANDOM_LINK_MAX_DURATION = 30
+DISCONNECT_RANDOM_ROUTER_MIN_DURATION = 60
+DISCONNECT_RANDOM_ROUTER_MAX_DURATION = 300
+LOSSY_LINK_MIN_DURATION = 10
+LOSSY_LINK_MAX_DURATION = 30
 
-# Background traffic will have a duration that is uniformly distributed around an avg, this specifies how much longer/shorter the duration can be
-BACKGROUND_TRAFFIC_DURATION_SPREAD = 25 
-COMPLEX_LOSS_MIN_DURATION = 20
-COMPLEX_LOSS_MAX_DURATION = 50
 MIN_DELAY = 2  # ms
 MAX_DELAY = 300  # ms
 MIN_BANDWIDTH = 100 # kbps
 MAX_BANDWIDTH = 10000 # kbps
+
+# Background traffic will have a duration that is uniformly distributed around an avg, this specifies how much longer/shorter the duration can be
+BACKGROUND_TRAFFIC_DURATION_SPREAD = 25 
+
+COMPLEX_LOSS_MIN_DURATION = 20
+COMPLEX_LOSS_MAX_DURATION = 50
+MIN_DELAY_SPIKE_DURATION = 30 # ms
+MAX_DELAY_SPIKE_DURATION = 240 
 
 stop_event = threading.Event()
 
@@ -249,8 +261,7 @@ def fire_event_exponentially_distributed(
 
 
 def elementary_loss(rng: random.Random, link: dict):
-    """An event that produces packet loss of multiple consecutive packets, as per the Paper"""
-    # TODO: add citation:
+    """An event that produces packet loss of multiple consecutive packets, as per the Paper by Markoupoulou et al. https://www.sciencedirect.com/science/article/pii/S0140366405002720"""
     src, dst = get_src_dst_from_link(link)
 
     link["loss_lock"].acquire_modify()
@@ -293,7 +304,7 @@ def delay_spike(rng: random.Random, link):
     """Add a simple delay spike that is equally as high(added delay) as it is long
     Eg. a packet that is forwarded over the impacted link usually experiences a propagation delay of 25 ms
     with a delay spike with size 75  it should (currently not implemented) experience a stepwise (due to implementation) decreasing loss with an initial maximum of 100 over a duration of 75ms"""
-    delay_size = rng.randint(30, 240) #ms
+    delay_size = rng.randint(MIN_DELAY_SPIKE_DURATION, MAX_DELAY_SPIKE_DURATION) #ms
     # timestamp = time.time_ns()
     src, dst = get_src_dst_from_link(link)
     link["delay_lock"].acquire_modify()
@@ -351,7 +362,7 @@ def undo_link_loss_change(args: list):
 
 class AddBogusStaticRouteEvent(AbstractEvent):
     def __init__(self):
-        super().__init__(min_duration=30, max_duration=120)  # Set min and max durations
+        super().__init__(min_duration=STATIC_ROUTE_MIN_DURATION, max_duration=STATIC_ROUTE_MAX_DURATION)  # Set min and max durations
 
     def execute(self, rng: random.Random):
         """
@@ -395,7 +406,7 @@ class ChangeOspfWeightEvent(AbstractEvent):
 # NOTE: this change will not be undone until the script terminates
 class IncreaseDelayEvent(AbstractEvent):
     def __init__(self):
-        super().__init__(min_duration=0.5, max_duration=0.5)  # Set min and max durations
+        super().__init__(min_duration=0, max_duration=0)  # Set min and max durations
 
     def execute(self, rng: random.Random):
         """
@@ -410,7 +421,7 @@ class IncreaseDelayEvent(AbstractEvent):
 
 class DisconnectRandomLinkEvent(AbstractEvent):
     def __init__(self):
-        super().__init__(min_duration=5, max_duration=30)  # Set min and max durations
+        super().__init__(min_duration=DISCONNECT_RANDOM_LINK_MIN_DURATION, max_duration=DISCONNECT_RANDOM_LINK_MAX_DURATION)  # Set min and max durations
 
     def execute(self, rng: random.Random):
         """
@@ -435,7 +446,7 @@ class DisconnectRandomLinkEvent(AbstractEvent):
 
 class DisconnectRandomRouterEvent(AbstractEvent):
     def __init__(self):
-        super().__init__(min_duration=60, max_duration=300)  # Set min and max durations
+        super().__init__(min_duration=DISCONNECT_RANDOM_ROUTER_MIN_DURATION, max_duration=DISCONNECT_RANDOM_ROUTER_MAX_DURATION)  # Set min and max durations
 
     def execute(self, rng:random.Random):
         """
@@ -448,7 +459,7 @@ class DisconnectRandomRouterEvent(AbstractEvent):
 
 class MakeLinkLossyEvent(AbstractEvent):
     def __init__(self):
-        super().__init__(min_duration=10, max_duration=30)  # Set min and max durations
+        super().__init__(min_duration=LOSSY_LINK_MIN_DURATION, max_duration=LOSSY_LINK_MAX_DURATION)  # Set min and max durations
 
     def execute(self, rng: random.Random):
         """
