@@ -27,6 +27,8 @@ Limitations: There can never be two simultaneous events in the chaos monkey scri
 
 Unrolling: Most events will be undone after some amount of time. Exceptions to this are changing the OSPF weight, changing a link's bandwidth, and changing a link's delay.
 
+The durations of these events is designed to be configurable through the global variables in the beginning of the script.
+
 ## Usage
 ```
 python3 script.py [-h] [--api-url API_URL] [--seed SEED]
