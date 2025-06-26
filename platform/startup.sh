@@ -257,10 +257,9 @@ time ./setup/sflow.sh "${DIRECTORY}"
 echo ""
 echo ""
 
-# TODO: fix
-# echo "NetFlow and traffic setup"
-# echo "netflow.sh $(($(date +%s%N)/1000000))" >> "${DIRECTORY}"/log.txt
-# time ./setup/netflow.sh "${DIRECTORY}"
+echo "NetFlow and traffic setup"
+echo "netflow.sh $(($(date +%s%N)/1000000))" >> "${DIRECTORY}"/log.txt
+time ./setup/netflow.sh "${DIRECTORY}"
 
 # echo ""
 # echo ""
