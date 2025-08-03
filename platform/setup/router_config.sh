@@ -134,11 +134,11 @@ for ((k = 0; k < group_numbers; k++)); do
                         fi
                     fi
 
-                    if [[ "${property2}" == *L2* ]]; then
-                        echo "router ospf"
-                        echo "network $(subnet_l2_router ${group_number} $((${l2_id[$property2]} - 1))) area 0"
-                        echo "exit"
-                    fi
+                    # if [[ "${property2}" == *L2* ]]; then
+                    #     echo "router ospf"
+                    #     echo "network $(subnet_l2_router ${group_number} $((${l2_id[$property2]} - 1))) area 0"
+                    #     echo "exit"
+                    # fi
 
                     router_id="$(subnet_router ${group_number} ${i})"
 

@@ -1,0 +1,4 @@
+LOC1   S2   LOC1   S3   10mbit   1ms    50ms
+LOC1   S2   LOC1   S4   10mbit   1ms    50ms
+LOC1   S3   LOC1   S4   10mbit   1ms    50ms
+LOC2   S5   LOC2   S6   10mbit   1ms    50ms

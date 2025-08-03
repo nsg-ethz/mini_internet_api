@@ -89,7 +89,6 @@ for ((k = 0; k < group_numbers; k++)); do
                     -v /etc/timezone:/etc/timezone:ro \
                     -v /etc/localtime:/etc/localtime:ro \
                     --log-opt max-size=1m --log-opt max-file=3 \
-                    --network="${ssh_to_ctn_bname}" --ip="${subnet_ssh_switch%/*}" \
                     "${DOCKERHUB_PREFIX}d_switch" > /dev/null
                 # echo ${group_number}_L2_${l2name}_${sname}
 
@@ -111,7 +110,7 @@ for ((k = 0; k < group_numbers; k++)); do
                 sname="${host_l[3]}"
 
                 if [[ $hname != vpn* ]]; then
-                    docker run -itd --dns="${subnet_dns%/*}" --cap-add=NET_ADMIN \
+                    docker run -itd --network='none' --dns="${subnet_dns%/*}" --cap-add=NET_ADMIN \
                         --cpus=2 --pids-limit 1000 --hostname "${hname}" \
                         --name="${group_number}""_L2_""${l2name}""_""${hname}" \
                         --sysctl net.ipv4.icmp_ratelimit=0 \

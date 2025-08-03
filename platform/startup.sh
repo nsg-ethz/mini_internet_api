@@ -307,6 +307,15 @@ if [[ "$1" == "demo" ]]; then
     echo ""
 fi
 
+if [[ "$1" == "demo_vlan" ]]; then
+    echo "demo_vlan config"
+    echo "demo_vlan.sh $(($(date +%s%N)/1000000))" >> "${DIRECTORY}"/log.txt
+    time ./setup/demo_vlan.sh "${DIRECTORY}" "${disable_mpls}"
+
+    echo ""
+    echo ""
+fi
+
 # echo "Applying hijacks: "
 # echo "hijacks $(($(date +%s%N)/1000000))" >> "${DIRECTORY}"/log.txt
 # time ./setup/hijack_config.py "${DIRECTORY}"

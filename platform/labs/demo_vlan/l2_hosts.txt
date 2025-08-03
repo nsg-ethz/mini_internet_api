@@ -1,0 +1,13 @@
+DCN_H1   mini_internet_api/d_ubuntu_host DCN   S1    10mbit   1ms    50ms    10
+DCN_H2   mini_internet_api/d_ubuntu_host DCN   S1    10mbit   1ms    50ms    10
+DCN_H3   mini_internet_api/d_ubuntu_host DCN   S1    10mbit   1ms    50ms    10
+LOC1_H1  mini_internet_api/d_ubuntu_host LOC1   S2    10mbit   1ms    50ms    20
+LOC1_H2  mini_internet_api/d_ubuntu_host LOC1   S2    10mbit   1ms    50ms    20
+LOC1_H3  mini_internet_api/d_ubuntu_host LOC1   S3    10mbit   1ms    50ms    20
+LOC1_H4  mini_internet_api/d_ubuntu_host LOC1   S3    10mbit   1ms    50ms    20
+LOC1_H5  mini_internet_api/d_ubuntu_host LOC1   S4    10mbit   1ms    50ms    20
+LOC1_H6  mini_internet_api/d_ubuntu_host LOC1   S4    10mbit   1ms    50ms    20
+LOC2_H1  mini_internet_api/d_ubuntu_host LOC2   S5    10mbit   1ms    50ms    30
+LOC2_H2  mini_internet_api/d_ubuntu_host LOC2   S5    10mbit   1ms    50ms    30
+LOC2_H3  mini_internet_api/d_ubuntu_host LOC2   S5    10mbit   1ms    50ms    30
+LOC2_H4  mini_internet_api/d_ubuntu_host LOC2   S6    10mbit   1ms    50ms    30

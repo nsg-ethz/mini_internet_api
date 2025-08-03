@@ -1,0 +1,3 @@
+66	AS	Config  	l3_routers.txt	l3_links.txt	l2_switches.txt	l2_hosts.txt	l2_links.txt
+163	AS	Config  	provider_routers.txt	empty.txt	empty.txt	empty.txt	empty.txt
+15	AS	Config  	provider_routers.txt	empty.txt	empty.txt	empty.txt	empty.txt

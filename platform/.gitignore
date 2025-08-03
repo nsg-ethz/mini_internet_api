@@ -159,3 +159,6 @@ groups/
 log.txt
 labs/config/
 labs/groups/
+
+*lab_network
+*lab_network.pub

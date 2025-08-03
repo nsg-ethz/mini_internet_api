@@ -54,6 +54,7 @@ for ((k = 0; k < group_numbers; k++)); do
             rname="${router_i[0]}"
             property1="${router_i[1]}"
             property2="$(echo ${router_i[2]} | cut -d ':' -f 1)"
+
             if [[ "${property2}" == *L2* ]]; then
 
                 declare -A vlanset
@@ -61,8 +62,13 @@ for ((k = 0; k < group_numbers; k++)); do
                 for ((l = 0; l < n_l2_hosts; l++)); do
                     host_l=(${l2_hosts[$l]})
                     vlan="${host_l[7]}"
-                    vlanset[$vlan]=0
-                    vlanl2set[${property2} - ${vlan}]=0
+                    temp_name="${host_l[2]}"
+
+                    # only VLANs that are part of this L2 network
+                    if [[ "L2-""$temp_name" == "$property2" ]]; then
+                        vlanset[$vlan]=0
+                        vlanl2set[${property2} - ${vlan}]=0
+                    fi
                 done
 
                 if [[ ${l2_id[$property2]} -eq 0 ]]; then
@@ -70,29 +76,10 @@ for ((k = 0; k < group_numbers; k++)); do
                     idtmp=$(($idtmp + 1))
                 fi
 
-                # Setup the 6in4 tunnels between the routers connected to the L2 networks
-                subnet_local_router=$(subnet_router $group_number $i)
+                #
+                # removed 6in4 tunnels for now
+                #
 
-                for ((u = 0; u < group_numbers; u++)); do
-                    group_tunnel=(${groups[$u]})
-                    group_number_tunnel="${group_tunnel[0]}"
-                    group_as_tunnel="${group_tunnel[1]}"
-
-                    if [ "${group_as_tunnel}" != "IXP" ] && [ "${group_number_tunnel}" != "${group_number}" ]; then
-                        subnet_remote_router=$(subnet_router $group_number_tunnel $i)
-
-                        echo "docker exec -d ${group_number}_${rname}router ip tunnel add tun6to4_${group_number_tunnel} mode sit remote ${subnet_remote_router%/*} local ${subnet_local_router%/*} ttl 255" >> "${DIRECTORY}"/groups/g"${group_number}"/6in4_setup.sh
-
-                        echo "docker exec -d ${group_number}_${rname}router ip link set tun6to4_${group_number_tunnel} up" >> "${DIRECTORY}"/groups/g"${group_number}"/6in4_setup.sh
-
-                        for vlan in "${!vlanset[@]}"; do
-                            subnet_remote_router_l2=$(subnet_l2_ipv6 $group_number_tunnel $((${l2_id[$property2]} - 1)) $vlan 0)
-
-                            echo "docker exec -d ${group_number}_${rname}router ip route add ${subnet_remote_router_l2} dev tun6to4_${group_number_tunnel}" >> "${DIRECTORY}"/groups/g"${group_number}"/6in4_setup.sh
-                        done
-                    fi
-                done
-                # Done setting up the 6in4 tunnels
                 for vlan in "${!vlanset[@]}"; do
                     get_docker_pid ${group_number}_${rname}router
                     PID=$DOCKER_PID
@@ -122,6 +109,7 @@ for ((k = 0; k < group_numbers; k++)); do
                 done
 
                 l2_routerid[$property2]=$((${l2_routerid[$property2]} + 1))
+                unset vlanset
             fi
         done
 
@@ -174,11 +162,6 @@ for ((k = 0; k < group_numbers; k++)); do
             vlanl2set["L2-"${l2name} - ${vlan}]=$((${vlanl2set["L2-"${l2name} - ${vlan}]} + 1))
         done
 
-        trunk_string=''
-        for v in "${!vlanset[@]}"; do
-            trunk_string=${trunk_string}${v},
-        done
-
         for ((l = 0; l < n_l2_links; l++)); do
             row_l=(${l2_links[$l]})
             l2name1="${row_l[0]}"
@@ -187,6 +170,27 @@ for ((k = 0; k < group_numbers; k++)); do
             switch2="${row_l[3]}"
             throughput="${row_l[4]}"
             delay="${row_l[5]}"
+
+            trunk_string=''
+            declare -A vlanset
+
+            for ((k = 0; k < n_l2_hosts; k++)); do
+                host_l=(${l2_hosts[$k]})
+                vlan="${host_l[7]}"
+                temp_name="${host_l[2]}"
+
+                # only VLANs that are part of this L2 network
+                if [[ "$temp_name" == "$l2name1" ]]; then
+                    vlanset[$vlan]=0
+                fi
+
+            done
+
+            for v in "${!vlanset[@]}"; do
+                trunk_string=${trunk_string}${v},
+            done
+
+            unset vlanset
 
             if [ "$group_config" == "Config" ]; then
                 docker exec -d "${group_number}""_L2_""${l2name1}_${switch1}" \
@@ -199,11 +203,30 @@ for ((k = 0; k < group_numbers; k++)); do
 
         for ((l = 0; l < n_l2_switches; l++)); do
             switch_l=(${l2_switches[$l]})
-            switch_l=(${l2_switches[$l]})
             l2name="${switch_l[0]}"
             sname="${switch_l[1]}"
             connected="${switch_l[2]}"
             sys_id="${switch_l[3]}"
+
+            trunk_string=''
+            declare -A vlanset
+
+            for ((k = 0; k < n_l2_hosts; k++)); do
+                host_l=(${l2_hosts[$k]})
+                vlan="${host_l[7]}"
+                temp_name="${host_l[2]}"
+
+                # only VLANs that are part of this L2 network
+                if [[ "$temp_name" == "$l2name" ]]; then
+                    vlanset[$vlan]=0
+                fi
+            done
+
+            for v in "${!vlanset[@]}"; do
+                trunk_string=${trunk_string}${v},
+            done
+
+            unset vlanset
 
             if [ "$group_config" == "Config" ]; then
                 if [[ $connected != "N/A" ]]; then

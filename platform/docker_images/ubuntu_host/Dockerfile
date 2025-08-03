@@ -25,7 +25,13 @@ RUN apt-get update && apt-get install -y \
     iperf3 \
     tcpdump \
     rsyslog \
+    snmpd \
+    snmp \
+    snmp-mibs-downloader \
     && rm -rf /var/lib/apt/lists/*
+
+# add basic snmpd config
+COPY snmpd.conf /etc/snmp/snmpd.conf
 
 # Install ExaBGP and networking tools
 RUN pip install exabgp

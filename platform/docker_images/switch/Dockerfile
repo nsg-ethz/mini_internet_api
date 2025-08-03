@@ -13,3 +13,9 @@ COPY supervisord.conf /etc/supervisor/conf.d/processes.conf
 COPY run_ovs.sh /usr/local/bin/run_ovs
 
 RUN chmod +x /usr/local/bin/run_ovs
+
+# add SNMP
+RUN apk add --no-cache net-snmp net-snmp-tools
+
+# add basic snmpd config
+COPY snmpd.conf /etc/snmp/snmpd.conf
