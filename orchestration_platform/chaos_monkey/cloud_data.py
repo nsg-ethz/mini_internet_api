@@ -43,6 +43,17 @@ DISCONNECT_RANDOM_ROUTER_MIN_DURATION = 300
 DISCONNECT_RANDOM_ROUTER_MAX_DURATION = 600
 LOSSY_LINK_MIN_DURATION = 120
 LOSSY_LINK_MAX_DURATION = 300
+DEMO_EVENT_MIN_DURATION = 450
+DEMO_EVENT_MAX_DURATION = 450
+LINK_STATUS_EVENT_MIN_DURATION = 300
+LINK_STATUS_EVENT_MAX_DURATION = 600
+CPU_LOAD_EVENT_MIN_DURATION = 120
+CPU_LOAD_EVENT_MAX_DURATION = 180
+ISOLATED_NODE_EVENT_MIN_DURATION = 300
+ISOLATED_NODE_EVENT_MAX_DURATION = 600
+IP_CHANGE_EVENT_MIN_DURATION = 300
+IP_CHANGE_EVENT_MAX_DURATION = 600
+
 
 MIN_DELAY = 2  # ms
 MAX_DELAY = 500  # ms
@@ -443,6 +454,163 @@ class DisconnectRandomLinkEvent(AbstractEvent):
             schedule_undo_event(duration, undo_link_loss_change, [link, "add_loss", {"src": src, "dst": dst, "loss_rate": curr_loss}])
 
 
+class IpChangeEvent(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=IP_CHANGE_EVENT_MIN_DURATION, max_duration=IP_CHANGE_EVENT_MAX_DURATION)  # Set min and max durations
+
+    def execute(self, rng: random.Random):
+        """
+        Function to temporarily change IPs on interfaces
+        """
+
+        changes = [
+            {"interface": "host", "old_prefix": "55.107.0.2/24", "new_prefix": "55.107.0.153/24"},
+            {"interface": "host3", "old_prefix": "55.107.3.2/24", "new_prefix": "55.108.3.2/24"},
+            {"interface": "port_bb2-4", "old_prefix": "55.0.34.2/24", "new_prefix": "173.24.33.2/24"},
+            {"interface": "port_bb2-5", "old_prefix": "55.0.35.2/24", "new_prefix": "55.0.29.4/24"}
+        ]
+
+        change = rng.choice(changes)
+
+        frr_config_cmd = f"""
+            interface {change["interface"]}
+            no ip address {change["old_prefix"]}
+            ip address {change["new_prefix"]}
+            exit
+        """
+
+        frr_config_cmd_back = f"""
+            interface {change["interface"]}
+            no ip address {change["new_prefix"]}
+            ip address {change["old_prefix"]}
+            exit
+        """
+
+        perform_request("change_frr_config", {"node": "l2-1", "cmd": frr_config_cmd})
+
+        time.sleep(rng.randint(self.min_duration, self.max_duration))
+
+        perform_request("change_frr_config", {"node": "l2-1", "cmd": frr_config_cmd_back})
+
+
+class IsolatedNodeEvent(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=ISOLATED_NODE_EVENT_MIN_DURATION, max_duration=ISOLATED_NODE_EVENT_MAX_DURATION)  # Set min and max durations
+
+    def execute(self, rng: random.Random):
+        """
+        Function to temporarily isolate a selected node
+        """
+
+        # TODO: in the future, we should move that to the OVH switch once properly supported
+
+        # lo ignored
+        ports = [
+            "host1",
+            "host2",
+            "host3",
+            "host4",
+            "host5",
+            "netflow",
+            "port_bb1-1",
+            "port_bb1-5",
+            "port_bb1-6",
+            "port_bb2-1",
+            "port_bb2-2",
+        ]
+
+        for port in ports:
+            perform_request("/execute", {"node": "bb1-7", "router": True, "cmd": f"ifconfig {port} down", "detach": True})
+
+        time.sleep(rng.randint(self.min_duration, self.max_duration))
+
+        for port in ports:
+            perform_request("/execute", {"node": "bb1-7", "router": True, "cmd": f"ifconfig {port} up", "detach": True})
+
+
+class CpuLoadEvent(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=CPU_LOAD_EVENT_MIN_DURATION, max_duration=CPU_LOAD_EVENT_MAX_DURATION)  # Set min and max durations
+
+    def execute(self, rng: random.Random):
+        """
+        Function to temporarily add a lot of CPU load
+        """
+
+        duration = rng.randint(self.min_duration, self.max_duration)
+
+        # we generate CPU load on one host
+        perform_request("/execute", {"node": "bb2-4",
+                                     "router": False,
+                                     "cmd": f"timeout {duration}s openssl speed -multi $(grep -ci processor /proc/cpuinfo)",
+                                     "detach": True})
+
+        time.sleep(duration)
+
+
+class LinkStatusEvent(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=LINK_STATUS_EVENT_MIN_DURATION, max_duration=LINK_STATUS_EVENT_MAX_DURATION)  # Set min and max durations
+
+    def execute(self, rng: random.Random):
+        """
+        Function to temporarily set a specific interface status to down
+        """
+
+        interfaces = ['host', 'port_bb2-3']
+
+        interface = rng.choice(interfaces)
+
+        perform_request("/execute", {"node": "bb2-4", "router": True, "cmd": f"ifconfig {interface} down", "detach": True})
+
+        time.sleep(rng.randint(self.min_duration, self.max_duration))
+
+        # IP should still be configured
+        perform_request("/execute", {"node": "bb2-4", "router": True, "cmd": f"ifconfig {interface} up", "detach": True})
+
+
+class DemoEvent1(AbstractEvent):
+    def __init__(self):
+        super().__init__(min_duration=DEMO_EVENT_MIN_DURATION, max_duration=DEMO_EVENT_MAX_DURATION)  # Set min and max durations
+
+    def execute(self, rng: random.Random):
+        """
+        Function to execute specific demo events
+        """
+        
+        # we can add more events here
+        events = [
+            {'tr_src': ['ext1-2', 'ext1-3'], 'tr_dst': 'bb1-1',
+             'ospf_src': 'bb1-5', 'ospf_dst': 'bb1-6', 'ospf_new': 300, 'ospf_old': 100,
+             'loss_src': 'bb1-4', 'loss_dst': 'bb1-3', 'loss_rate': 15}
+        ]
+
+        event = rng.choice(events)
+
+        # create loss rate first - we break existing loss events running at the same time for now
+        perform_request("add_loss", {"src": event['loss_src'], "dst": event['loss_dst'], "loss_rate": event['loss_rate']})
+
+        port = PORT_MANAGER.get_port(duration=self.max_duration+1)
+        if not port:
+            print("no port available, continuing")
+            return
+
+        traffic_cmd = gen_videostreaming_traffic_cmd(event['tr_dst'], event['tr_src'], self.max_duration, port, rng.randint(0, 10000))
+        perform_request("/execute", {"node": event['tr_dst'], "router": False, "cmd": traffic_cmd, "detach": True})
+
+        time.sleep(30)
+
+        # OSPF change
+        perform_request("change_ospf_cost", {"src": event['ospf_src'], "dst": event['ospf_dst'], "cost": event['ospf_new']})
+        perform_request("change_ospf_cost", {"src": event['ospf_dst'], "dst": event['ospf_src'], "cost": event['ospf_new']})
+
+        time.sleep(self.max_duration)
+
+        # set to expected OSPF change (traffic should be over)
+        perform_request("change_ospf_cost", {"src": event['ospf_src'], "dst": event['ospf_dst'], "cost": event['ospf_old']})
+        perform_request("change_ospf_cost", {"src": event['ospf_dst'], "dst": event['ospf_src'], "cost": event['ospf_old']})
+        perform_request("add_loss", {"src": event['loss_src'], "dst": event['loss_dst'], "loss_rate": 0})
+
 
 class DisconnectRandomRouterEvent(AbstractEvent):
     def __init__(self):
@@ -503,13 +671,25 @@ def chaos_monkey(rng: random.Random):
     Main function to run the chaos monkey.
     """
     chaos_events = [
-        AddBogusStaticRouteEvent(),
+        # skipped because too much noise for now
+        # AddBogusStaticRouteEvent(),
+        # IncreaseDelayEvent(),
+        # DisconnectRandomRouterEvent(),
+
+        # skipped because not really measurable for now
+        # ChangeBandwidthEvent(),
+
+        # skipped because not working properly for now
+        # CpuLoadEvent(),
+
+        # current events
         ChangeOspfWeightEvent(),
-        IncreaseDelayEvent(),
         DisconnectRandomLinkEvent(),
-        DisconnectRandomRouterEvent(),
         MakeLinkLossyEvent(),
-        ChangeBandwidthEvent(),
+        DemoEvent1(),
+        LinkStatusEvent(),
+        IsolatedNodeEvent(),
+        IpChangeEvent(),
     ]
 
     # Calculate the average duration for all events
@@ -522,9 +702,6 @@ def chaos_monkey(rng: random.Random):
         event = rng.choice(chaos_events)
         event.execute(rng)  # Call the event function
         time.sleep(rng.expovariate(chaos_rate))
-        
-
-
 
 
 def event_unroller():
@@ -652,14 +829,6 @@ if __name__ == "__main__":
     )
     traffic_thread.start()
 
-    # add small loss and delay events all over
-    loss_thread = threading.Thread(target = fire_event_exponentially_distributed, args=(rng_loss , args.loss_rate, loss_event, []), name="LossGenerator", daemon=True)
-    loss_thread.start()
-
-    delay_thread = threading.Thread(target=fire_event_exponentially_distributed, args=(rng_delay, args.delay_rate, delay_event, []), name="DelayGenerator", daemon=True)
-    delay_thread.start()
-    # while True:
-    #     time.sleep(1)
     event_unroll_thread = threading.Thread(target=event_unroller,args = (), name="EventUnroller", daemon=True)
     event_unroll_thread.start()
 

@@ -187,7 +187,7 @@ def save_current_config(configuration, node: str):
         file.write(configuration)
 
 
-def get_interface_from_to(src: NodeID, dst: NodeID):
+def get_interface_from_to(src: NodeID, dst: NodeID, on_switch: bool=False):
     """Get the interface name between two nodes.
 
     Args:
@@ -205,7 +205,10 @@ def get_interface_from_to(src: NodeID, dst: NodeID):
     if not hasattr(get_interface_from_to, "interfaces"):
         get_interface_from_to.interfaces = {}
 
-    cached_ifa = get_interface_from_to.interfaces.get((src.name, dst.name))
+    if on_switch:
+        cached_ifa = get_interface_from_to.interfaces.get((src.name, dst.name, "s"))
+    else:
+        cached_ifa = get_interface_from_to.interfaces.get((src.name, dst.name))
     if cached_ifa:
         return cached_ifa
 
@@ -227,9 +230,15 @@ def get_interface_from_to(src: NodeID, dst: NodeID):
     if iface == "":
         raise Exception(f"cant find interface from {src.name} to {dst.name} in {result}, cmd: {command}")
 
-    # Cache the interface for future use
-    get_interface_from_to.interfaces[(src.name, dst.name)] = iface
-    return iface
+    if on_switch:
+        # TODO: bypasses IP routing, fix!
+        iface = f"{dst.name}_{src.name}"
+        get_interface_from_to.interfaces[(src.name, dst.name, "s")] = iface
+        return iface
+    else:
+        # Cache the interface for future use
+        get_interface_from_to.interfaces[(src.name, dst.name)] = iface
+        return iface
 
 
 def is_valid_ip(ip_str):
@@ -437,23 +446,28 @@ def add_loss(request: config.AddLossRequest):
     try:
         # Validate and get identifiers
         src, dst = validate_and_get_NodeIDs(request.src, request.dst)
-        current_params = check_link_state(src.name, dst.name)
+        current_params = check_link_state(src.name, dst.name, True)
 
         # TODO: error handing
         loss_rate = request.loss_rate
-        interface = get_interface_from_to(src, dst)
+        interface = get_interface_from_to(src, dst, True)
 
         cmd = f"""/bin/bash -c 'tc qdisc del dev {interface} root ; \
         tc qdisc add dev {interface} root handle 1:0 netem delay {current_params["delay"]} loss {loss_rate}% ; \n \
         tc qdisc add dev {interface} parent 1:1 handle 10: tbf rate {current_params["bandwidth"]} burst {current_params["burst"]} latency {current_params["buffer"]}'"""
 
+        node_container_name = f"{config.LAB_PREFIX}_L3_switch"
+        node_container = client.containers.get(node_container_name)
+
+        switch = NodeID("L3_switch", node_container_name, node_container)
+
         # Execute the command in the container
-        exec_result = src.container.exec_run(cmd)
+        exec_result = switch.container.exec_run(cmd)
 
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
-                    "node": src.name,
+                    "node": switch.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -489,21 +503,26 @@ def rm_loss(request: config.RemoveChangeRequest):
     try:
         # Validate and get container names
         src, dst = validate_and_get_NodeIDs(request.src, request.dst)
-        current_params = check_link_state(src.name, dst.name)
-        interface = get_interface_from_to(src, dst)
+        current_params = check_link_state(src.name, dst.name, True)
+        interface = get_interface_from_to(src, dst, True)
 
         cmd = f"""/bin/bash -c '
         tc qdisc del dev {interface} root ; \
         tc qdisc add dev {interface} root handle 1:0 netem delay {current_params["delay"]}\n \
         tc qdisc add dev {interface} parent 1:1 handle 10: tbf rate {current_params["bandwidth"]} burst {current_params["burst"]} latency {current_params["buffer"]}'"""
 
+        node_container_name = f"{config.LAB_PREFIX}_L3_switch"
+        node_container = client.containers.get(node_container_name)
+
+        switch = NodeID("L3_switch", node_container_name, node_container)
+
         # Execute the command in the container
-        exec_result = src.container.exec_run(cmd)
+        exec_result = switch.container.exec_run(cmd)
 
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
-                    "node": src.name,
+                    "node": switch.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -538,23 +557,28 @@ def add_delay(request: config.AddDelayRequest):
     try:
         # Validate and get identifiers
         src, dst = validate_and_get_NodeIDs(request.src, request.dst)
-        current_params = check_link_state(src.name, dst.name)
+        current_params = check_link_state(src.name, dst.name, True)
 
         # TODO: error handing
         delay = request.delay
         # Get the container object
-        interface = get_interface_from_to(src, dst)
+        interface = get_interface_from_to(src, dst, True)
         cmd = f"""/bin/bash -c 'tc qdisc del dev {interface} root ; \
         tc qdisc add dev {interface} root handle 1:0 netem delay {delay}ms loss {current_params["loss"]} ; \n \
         tc qdisc add dev {interface} parent 1:1 handle 10: tbf rate {current_params["bandwidth"]} burst {current_params["burst"]} latency {current_params["buffer"]}'"""
 
+        node_container_name = f"{config.LAB_PREFIX}_L3_switch"
+        node_container = client.containers.get(node_container_name)
+
+        switch = NodeID("L3_switch", node_container_name, node_container)
+
         # Execute the command in the container
-        exec_result = src.container.exec_run(cmd)
+        exec_result = switch.container.exec_run(cmd)
 
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
-                    "node": src.name,
+                    "node": switch.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -589,22 +613,27 @@ def rm_delay(request: config.RemoveChangeRequest):
     try:
         # Validate and get container names
         src, dst = validate_and_get_NodeIDs(request.src, request.dst)
-        current_params = check_link_state(src.name, dst.name)
+        current_params = check_link_state(src.name, dst.name, True)
 
         # it is set in the network setup and should be parsed from there
-        interface = get_interface_from_to(src, dst)
+        interface = get_interface_from_to(src, dst, True)
         cmd = f"""/bin/bash -c '
         tc qdisc del dev {interface} root ; \
         tc qdisc add dev {interface} root handle 1:0 netem loss {current_params["loss"]} delay {config.LAB_LINKS[frozenset({src.name, dst.name})]["delay"]}\n \
         tc qdisc add dev {interface} parent 1:1 handle 10: tbf rate {current_params["bandwidth"]} burst {current_params["burst"]} latency {current_params["buffer"]}'"""
 
+        node_container_name = f"{config.LAB_PREFIX}_L3_switch"
+        node_container = client.containers.get(node_container_name)
+
+        switch = NodeID("L3_switch", node_container_name, node_container)
+
         # Execute the command in the container
-        exec_result = src.container.exec_run(cmd)
+        exec_result = switch.container.exec_run(cmd)
 
         if exec_result.exit_code != 0:
             raise Exception(
                 {   
-                    "node": src.name,
+                    "node": switch.name,
                     "cmd": cmd,
                     "output": exec_result.output.decode("utf-8"),
                     "exit_code": exec_result.exit_code,
@@ -887,7 +916,7 @@ def get_output(cmd_id: str):
         raise HTTPException(status_code=500, detail="Docker: " + str(e))  # noqa: B904
 
 
-def check_link_state(src: str, dst: str):
+def check_link_state(src: str, dst: str, on_switch: bool=False):
     """Check the current state (loss, delay, bandwidth, burst, buffer) of a network link.
 
     Args:
@@ -906,24 +935,46 @@ def check_link_state(src: str, dst: str):
         src, dst = validate_and_get_NodeIDs(src, dst, "router")  # type: ignore
 
         # Command to check the current parameters
-        cmd = f"/bin/bash -c 'tc qdisc show dev {get_interface_from_to(src, dst)}'"  # type: ignore
+        cmd = f"/bin/bash -c 'tc qdisc show dev {get_interface_from_to(src, dst, on_switch)}'"  # type: ignore
 
-        # Execute the command in the container
-        exec_result = src.container.exec_run(cmd)  # type: ignore
+        if on_switch:
+            # Execute the command in the container
 
-        if exec_result.exit_code != 0:
-            raise Exception(
-                {   
-                    "node": src.name,
-                    "cmd": cmd,
-                    "output": exec_result.output.decode("utf-8"),
-                    "exit_code": exec_result.exit_code,
-                }
-            )
+            node_container_name = f"{config.LAB_PREFIX}_L3_switch"
+            node_container = client.containers.get(node_container_name)
+
+            switch = NodeID("L3_switch", node_container_name, node_container)
+
+            exec_result = switch.container.exec_run(cmd)  # type: ignore
+
+            if exec_result.exit_code != 0:
+                raise Exception(
+                    {   
+                        "node": switch.name,
+                        "cmd": cmd,
+                        "output": exec_result.output.decode("utf-8"),
+                        "exit_code": exec_result.exit_code,
+                    }
+                )
+        else:
+            # Execute the command in the container
+            exec_result = src.container.exec_run(cmd)  # type: ignore
+
+            if exec_result.exit_code != 0:
+                raise Exception(
+                    {   
+                        "node": src.name,
+                        "cmd": cmd,
+                        "output": exec_result.output.decode("utf-8"),
+                        "exit_code": exec_result.exit_code,
+                    }
+                )
 
         # Parse the output to extract the parameters
         output = exec_result.output.decode("utf-8")
         # print(output)
+
+        # TODO: fix me, mixes on switch and normal
         link_parameters = parse_link_parameters(output, src, dst)
 
         # Return the current parameters
@@ -1545,6 +1596,7 @@ def copy_syslogs():
         raise HTTPException(status_code=500, detail=f"Docker API error: {str(e)}")  # noqa: B904
 
 
+# TODO: fix me, does not work with switch link
 def set_bandwidth(request: config.SetBandwidthRequest):
     """Set the bandwidth of a network link.
 
@@ -1603,6 +1655,7 @@ def set_bandwidth(request: config.SetBandwidthRequest):
         raise HTTPException(status_code=500, detail="Docker: " + str(e))  # noqa: B904
 
 
+# TODO: fix me, does not work with switch link
 def set_buffer(request: config.SetBufferRequest):
     """Set the buffer of a network link.
 
@@ -1658,6 +1711,7 @@ def set_buffer(request: config.SetBufferRequest):
         raise HTTPException(status_code=500, detail="Docker: " + str(e))  # noqa: B904
 
 
+# TODO: fix me, does not work with switch link
 def set_burst(request: config.SetBurstRequest):
     """Set the burst of a network link.
 
@@ -1762,6 +1816,7 @@ def execute(request: config.ExecuteRequest):
         raise HTTPException(status_code=500, detail="Docker: " + str(e))  # noqa: B904
 
 
+# TODO: fix me, does not work with switch link
 def reset_bandwidth(request: config.RemoveChangeRequest):
     """Reset the bandwidth of a network link to its initial value.
 
@@ -1823,6 +1878,7 @@ def reset_bandwidth(request: config.RemoveChangeRequest):
         raise HTTPException(status_code=500, detail="Docker: " + str(e))  # noqa: B904
 
 
+# TODO: fix me, does not work with switch link
 def reset_burst(request: config.RemoveChangeRequest):
     """Reset the burst of a network link to its initial value.
 
@@ -1880,6 +1936,7 @@ def reset_burst(request: config.RemoveChangeRequest):
         raise HTTPException(status_code=500, detail="Docker: " + str(e))  # noqa: B904
 
 
+# TODO: fix me, does not work with switch link
 def reset_buffer(request: config.RemoveChangeRequest):
     """Reset the buffer of a network link to its initial value.
 
@@ -1938,6 +1995,7 @@ def reset_buffer(request: config.RemoveChangeRequest):
         raise HTTPException(status_code=500, detail="Docker: " + str(e))  # noqa: B904
 
 
+# TODO: fix me, does not yet work with switch interfaces
 def reset_link(request: config.RemoveChangeRequest):
     """Reset the link parameters to their initial values.
 

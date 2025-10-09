@@ -92,6 +92,7 @@ def compute_burstsize(throughput: str, mtu: int = 1500) -> int:
         "mibps": 1024**2,
         "gibps": 1024**3,
         "tibps": 1024**4,
+        "mbit": 1_000_000,
     }
 
     if unit not in unit_multipliers:
