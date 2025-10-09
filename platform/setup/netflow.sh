@@ -68,7 +68,7 @@ for ((k=0;k<group_numbers;k++)); do
                 mac_address=$(echo "$line" | grep -oP 'ether \K[\w:]+')
                 iface_base=${iface%%@*}
 
-                # echo "$rname" "$iface" "$iface_base" "$mac_address"
+                # echo "$rname" "$iface" "$iface_base" "$mac_address" "$main_ip"
                 docker exec "$group_number"_"$rname"router softflowd -i "$iface_base" -n "$main_ip":9996 -p /var/run/softflowd"$j".pid -t general=5s -m 1 -v 10 -T ether ether src "$mac_address" or ether dst "$mac_address"
 
             done  <<< "$interfaces"
