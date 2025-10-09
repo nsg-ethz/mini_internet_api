@@ -47,6 +47,31 @@ for ((k = 0; k < group_numbers; k++)); do
             location="${DIRECTORY}"/groups/g"${group_number}"
             subnet_dns="$(subnet_router_DNS "${group_number}" "dns-group")"
 
+            # start switch for l3 links
+            docker run -itd --dns="${subnet_dns%/*}" --cap-add=NET_ADMIN \
+                --cpus=2 --pids-limit 1024 --hostname "${group_number}_L3_switch" \
+                --name="${group_number}_L3_switch" \
+                --cap-add=ALL \
+                --cap-drop=SYS_RESOURCE \
+                --sysctl net.ipv4.ip_forward=1 \
+                --sysctl net.ipv4.icmp_ratelimit=0 \
+                --sysctl net.ipv4.fib_multipath_hash_policy=1 \
+                --sysctl net.ipv4.conf.all.rp_filter=0 \
+                --sysctl net.ipv4.conf.default.rp_filter=0 \
+                --sysctl net.ipv4.conf.lo.rp_filter=0 \
+                --sysctl net.ipv4.icmp_echo_ignore_broadcasts=0 \
+                --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+                --sysctl net.ipv6.conf.all.forwarding=1 \
+                --sysctl net.ipv6.icmp.ratelimit=0 \
+                -v /etc/timezone:/etc/timezone:ro \
+                -v /etc/localtime:/etc/localtime:ro \
+                --log-opt max-size=1m --log-opt max-file=3 \
+                "${DOCKERHUB_PREFIX}d_switch" > /dev/null
+                # echo ${group_number}_L2_${l2name}_${sname}
+
+            # set etho0 down
+            docker exec ${group_number}_L3_switch ip link set dev eth0 down
+
             # start netflow collector
             docker run -itd --network='none' --dns="${subnet_dns%/*}"  \
                 --name="${group_number}_netflow" --cap-add=NET_ADMIN \

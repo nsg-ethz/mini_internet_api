@@ -760,18 +760,23 @@ connect_one_l3_host_router() {
     fi
 
     # check enough arguments are provided
-    if [ "$#" -ne 3 ]; then
-        echo "Usage: connect_one_l3_host_router <AS> <Region> <HostSuffix>"
+    if [ "$#" -ne 6 ]; then
+        echo "Usage: connect_one_l3_host_router <AS> <Region> <HostSuffix> <Throughput> <Delay> <Buffer>"
         exit 1
     fi
 
     local CurrentAS=$1
     local CurrentRegion=$2
     local CurrentHostSuffix=$3
+    local throughput=$4
+    local delay=$5
+    local buffer=$6
     local HostCtnName="${CurrentAS}_${CurrentRegion}host${CurrentHostSuffix}"
     local HostInterface="${CurrentRegion}router"
     local RouterCtnName="${CurrentAS}_${CurrentRegion}router"
     local RouterInterface="host${CurrentHostSuffix}"
+
+    local burst=$(compute_burstsize $throughput)
 
     # generate unique veth interface names for the host and the router
     local Identifier="${HostCtnName}_${HostInterface}"
@@ -824,7 +829,20 @@ connect_one_l3_host_router() {
     ip netns exec $RouterPID ip link set dev $RouterCtnVethInterface name $RouterInterface
     ip netns exec $RouterPID ip link set $RouterInterface up
 
-    # reuturn the PIDs and interfaces of the host and the router
+    # sleep some time to avoid "Failed to find specified qdisc" error
+    sleep 1
+
+    # 1
+    ip netns exec $RouterPID tc qdisc add dev $RouterInterface root handle 1:0 netem delay $delay
+    ip netns exec $RouterPID tc qdisc add dev $RouterInterface parent 1:1 handle 10: tbf rate \
+        "${throughput}" burst $burst latency "${buffer}"
+
+    # 2
+    ip netns exec $HostPID tc qdisc add dev $HostInterface root handle 1:0 netem delay $delay
+    ip netns exec $HostPID tc qdisc add dev $HostInterface parent 1:1 handle 10: tbf rate \
+        "${throughput}" burst $burst latency "${buffer}"
+
+    # return the PIDs and interfaces of the host and the router
     echo "$HostPID $RouterPID $HostInterface $RouterInterface"
 
 }
@@ -980,6 +998,126 @@ connect_one_l2_gateway() {
 
     echo "$SwitchInterface $SwitchPID $RouterInterface $RouterPID"
 
+}
+
+# connect one pair of internal routers via a switch and configure link throughput and delay
+connect_one_internal_routers_switch() {
+
+    if (($UID != 0)); then
+        echo "$0 needs to be run as root"
+        exit 1
+    fi
+
+    # check enough arguments are provided
+    if [ "$#" -ne 6 ]; then
+        echo "Usage: connect_one_internal_routers_switch <AS> <RegionA> <RegionB> <Throughput> <Delay> <Buffer> <Buffer>"
+        exit 1
+    fi
+
+    local CurrentAS=$1
+    local CurrentRA=$2
+    local CurrentRB=$3
+    local throughput=$4
+    local delay=$5
+    local buffer=$6
+
+    local container1="${CurrentAS}_${CurrentRA}router"
+    local interface1="port_${CurrentRB}"
+    local interface1_s="${CurrentRB}_${CurrentRA}"
+    local container2="${CurrentAS}_${CurrentRB}router"
+    local interface2="port_${CurrentRA}"
+    local interface2_s="${CurrentRA}_${CurrentRB}"
+    local switch="${CurrentAS}_L3_switch"
+
+    # # connect two interfaces
+    # connect_two_interfaces $RegionACtnName $RegionAInterface $RegionBCtnName \
+    #     $RegionBInterface $CurrentThroughput $CurrentDelay $CurrentBuffer \
+    #     > /dev/null
+
+    local burst=$(compute_burstsize $throughput)
+
+    # generate unique veth interface names
+    local identifier="${container1}_${interface1}_${container2}_${interface2}"
+    local portname=$(create_unique_port_name "${identifier}")
+
+    local veth_interface1="${portname}_a"
+    local veth_interface2="${portname}_b"
+    local veth_interface1_s="${portname}_s"
+    local veth_interface2_s="${portname}_l"
+
+    # get the PID of two containers
+    if [ "$(docker inspect -f '{{.State.Running}}' "$container1")" == "false" ]; then
+        docker start "$container1" > /dev/null
+    fi
+    if [ "$(docker inspect -f '{{.State.Running}}' "$container2")" == "false" ]; then
+        docker start "$container2" > /dev/null
+    fi
+    if [ "$(docker inspect -f '{{.State.Running}}' "$switch")" == "false" ]; then
+        docker start "$switch" > /dev/null
+    fi
+    local pid1=$(get_container_pid $container1 "False")
+    local pid2=$(get_container_pid $container2 "False")
+    local pid3=$(get_container_pid $switch "False")
+
+    # create a symlink to use ip netns
+    create_netns_symlink "$pid1"
+    create_netns_symlink "$pid2"
+    create_netns_symlink "$pid3"
+
+    # create a veth pairs with switch in between
+    ip link add $veth_interface1 type veth peer name "${veth_interface1_s}"
+    ip link add $veth_interface2 type veth peer name "${veth_interface2_s}"
+
+    # set up the interfaces on containers
+    ip link set $veth_interface1 netns $pid1
+    ip netns exec $pid1 ip link set dev $veth_interface1 name $interface1
+    ip netns exec $pid1 ip link set $interface1 up
+
+    ip link set $veth_interface2 netns $pid2
+    ip netns exec $pid2 ip link set dev $veth_interface2 name $interface2
+    ip netns exec $pid2 ip link set $interface2 up
+
+    # on switch
+    ip link set "${veth_interface1_s}" netns $pid3
+    ip netns exec $pid3 ip link set dev "${veth_interface1_s}" name "${interface1_s}"
+    ip netns exec $pid3 ip link set "${interface1_s}" up
+
+    ip link set "${veth_interface2_s}" netns $pid3
+    ip netns exec $pid3 ip link set dev "${veth_interface2_s}" name "${interface2_s}"
+    ip netns exec $pid3 ip link set "${interface2_s}" up
+
+    docker exec "$CurrentAS"_L3_switch ovs-vsctl add-port int-"${CurrentAS}" "${interface1_s}"
+    docker exec "$CurrentAS"_L3_switch ovs-vsctl add-port int-"${CurrentAS}" "${interface2_s}"
+
+    # connect on switch
+    port_id1=$(docker exec "$CurrentAS"_L3_switch ovs-vsctl get Interface "${interface1_s}" ofport)
+    port_id2=$(docker exec "$CurrentAS"_L3_switch ovs-vsctl get Interface "${interface2_s}" ofport)
+
+    docker exec "$CurrentAS"_L3_switch ovs-ofctl add-flow int-"${CurrentAS}" in_port="${port_id1}",actions=output:"${port_id2}"
+    docker exec "$CurrentAS"_L3_switch ovs-ofctl add-flow int-"${CurrentAS}" in_port="${port_id2}",actions=output:"${port_id1}"
+
+    # configure the thoughput on both interfaces with tc
+
+    # sleep some time to avoid "Failed to find specified qdisc" error
+    sleep 1
+
+    # 1
+    ip netns exec $pid1 tc qdisc add dev $interface1 root handle 1:0 netem delay $delay
+    ip netns exec $pid1 tc qdisc add dev $interface1 parent 1:1 handle 10: tbf rate \
+        "${throughput}" burst $burst latency "${buffer}"
+
+    ip netns exec $pid3 tc qdisc add dev "${interface1_s}" root handle 1:0 netem delay $delay
+    ip netns exec $pid3 tc qdisc add dev "${interface1_s}" parent 1:1 handle 10: tbf rate \
+        "${throughput}" burst $burst latency "${buffer}"
+
+    # 2
+    ip netns exec $pid2 tc qdisc add dev $interface2 root handle 1:0 netem delay $delay
+    ip netns exec $pid2 tc qdisc add dev $interface2 parent 1:1 handle 10: tbf rate \
+        "${throughput}" burst $burst latency "${buffer}"
+
+    ip netns exec $pid3 tc qdisc add dev "${interface2_s}" root handle 1:0 netem delay $delay
+    ip netns exec $pid3 tc qdisc add dev "${interface2_s}" parent 1:1 handle 10: tbf rate \
+        "${throughput}" burst $burst latency "${buffer}"
 }
 
 # connect one pair of internal routers and configure link throughput and delay

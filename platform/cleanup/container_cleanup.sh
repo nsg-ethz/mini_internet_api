@@ -34,6 +34,10 @@ for ((k=0;k<group_numbers;k++)); do
         n_l2_switches=${#l2_switches[@]}
         n_l2_hosts=${#l2_hosts[@]}
 
+        # kill L3 switch
+        docker kill "${group_number}""_L3_switch" &>/dev/null || true
+        docker rm "${group_number}""_L3_switch" &>/dev/null || true
+
         # kill netflow container
         docker kill "${group_number}""_netflow" &>/dev/null || true
         docker rm "${group_number}""_netflow" &>/dev/null || true

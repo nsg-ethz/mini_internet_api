@@ -67,7 +67,7 @@ python3 "${DIRECTORY}"/setup/_compute_independent_ext_links.py "${DIRECTORY}"
 if [ "$(ls -A "${DIRECTORY}"/groups/aslevel_links/)" ]; then
     for CurrentLinkFile in "${DIRECTORY}"/groups/aslevel_links/aslevel_links_*.txt; do
         connect_one_link_group "${CurrentLinkFile}" # different link groups cannot be parallelized
-        echo "Connected external links in ${CurrentLinkFile}"
+        # echo "Connected external links in ${CurrentLinkFile}"
     done
 fi
 wait

@@ -40,6 +40,11 @@ for ((k = 0; k < GroupNumber; k++)); do
 
         if [ "${GroupType}" != "IXP" ]; then
 
+            # OvS switch that interconnects all links between routers
+            br_name="int-""${GroupAS}"
+            docker exec "$GroupAS"_L3_switch ovs-vsctl add-br "${br_name}"
+            docker exec "$GroupAS"_L3_switch ifconfig "${br_name}" 0.0.0.0 up
+
             readarray InternalLinks < "${DIRECTORY}/config/$GroupInternalLinkConfig"
             IntLinkNumber=${#InternalLinks[@]}
 
@@ -51,7 +56,10 @@ for ((k = 0; k < GroupNumber; k++)); do
                 Throughput="${IntLinkI[2]}"     # throughput
                 Delay="${IntLinkI[3]}"          # delay
                 Buffer="${IntLinkI[4]}"         # buffer latency (in ms)
-                connect_one_internal_routers "${GroupAS}" "${RegionA}" "${RegionB}" "${Throughput}" "${Delay}" "${Buffer}"
+                connect_one_internal_routers_switch "${GroupAS}" "${RegionA}" "${RegionB}" "${Throughput}" "${Delay}" "${Buffer}"
+
+                # if no switches are needed
+                # connect_one_internal_routers "${GroupAS}" "${RegionA}" "${RegionB}" "${Throughput}" "${Delay}" "${Buffer}"
             done
         echo "Connected internal routers in group ${GroupAS}"
         fi
