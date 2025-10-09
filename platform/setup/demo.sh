@@ -103,7 +103,7 @@ for ((k = 0; k < group_numbers; k++)); do
                 docker cp "${DIRECTORY}/config/iptables/${rname}router.iptables" "${group_number}_${rname}router":"/home/iptables.iptables" > /dev/null
 
                 configdir="${DIRECTORY}/groups/g${group_number}/${rname}/config"
-                # Create files and directoryu
+                # Create files and directory
                 mkdir -p "${configdir}"
                 echo "#!/usr/bin/vtysh -f" > "${configdir}/conf_extra.sh"
                 chmod +x "${configdir}/conf_extra.sh"
@@ -121,9 +121,9 @@ for ((k = 0; k < group_numbers; k++)); do
                 # } >> "${location}"
 
                 # we disable BGP on all routers, not needed at the moment
-                {
-                    echo "no router bgp ${group_number}"
-                } >> "${location}"
+                # {
+                #     echo "no router bgp ${group_number}"
+                # } >> "${location}"
 
                 # enabling iptables rules
                 docker exec "${group_number}_${rname}router" /bin/bash -c 'iptables-restore < /home/iptables.iptables'
@@ -501,8 +501,8 @@ for ((k = 0; k < group_numbers; k++)); do
                     } >> "${location}"
 
                     # loss on link towards bb1-7 (unidirectional)
-                    docker exec "${group_number}"_"${rname}"router tc qdisc del dev port_bb1-7 root
-                    docker exec "${group_number}"_"${rname}"router tc qdisc add dev port_bb1-7 root handle 1:0 netem delay 5ms loss 1%
+                    # docker exec "${group_number}"_"${rname}"router tc qdisc del dev port_bb1-7 root
+                    # docker exec "${group_number}"_"${rname}"router tc qdisc add dev port_bb1-7 root handle 1:0 netem delay 5ms loss 1%
 
                 fi
 
@@ -683,8 +683,8 @@ for ((k = 0; k < group_numbers; k++)); do
                     } >> "${location}"
 
                     # loss on link towards bb2-5 (bidirectional)
-                    docker exec "${group_number}"_"${rname}"router tc qdisc del dev port_bb2-5 root
-                    docker exec "${group_number}"_"${rname}"router tc qdisc add dev port_bb2-5 root handle 1:0 netem delay 5ms loss 1%
+                    # docker exec "${group_number}"_"${rname}"router tc qdisc del dev port_bb2-5 root
+                    # docker exec "${group_number}"_"${rname}"router tc qdisc add dev port_bb2-5 root handle 1:0 netem delay 5ms loss 1%
 
                     if [ "$disable_mpls" == false ]; then
                         # enable MPLS
@@ -774,8 +774,8 @@ for ((k = 0; k < group_numbers; k++)); do
                     docker exec "${group_number}"_"${rname}"router lldpd -c -x -M 4 -I port_bb2-3,port_l2-1
 
                     # loss on link towards bb2-3 (bidirectional)
-                    docker exec "${group_number}"_"${rname}"router tc qdisc del dev port_bb2-3 root
-                    docker exec "${group_number}"_"${rname}"router tc qdisc add dev port_bb2-3 root handle 1:0 netem delay 5ms loss 1%
+                    # docker exec "${group_number}"_"${rname}"router tc qdisc del dev port_bb2-3 root
+                    # docker exec "${group_number}"_"${rname}"router tc qdisc add dev port_bb2-3 root handle 1:0 netem delay 5ms loss 1%
 
                     if [ "$disable_mpls" == false ]; then
                         # enable MPLS
