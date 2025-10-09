@@ -78,7 +78,7 @@ for ((k = 0; k < GroupNumber; k++)); do
 
                     # connect_one_l3_host_router "${GroupAS}" "${RouterRegion}"
                     read -r HostPID RouterPID HostInterface RouterInterface \
-                        < <(connect_one_l3_host_router "${GroupAS}" "${RouterRegion}" "${HostSuffix}")
+                        < <(connect_one_l3_host_router "${GroupAS}" "${RouterRegion}" "${HostSuffix}" "1000mbit" "5ms" "50ms")
 
                     # set default ip address and default gw in host
                     if [ "$GroupHasConfig" == "Config" ]; then
@@ -112,7 +112,7 @@ for ((k = 0; k < GroupNumber; k++)); do
 
                         # connect_one_l3_host_router "${GroupAS}" "${RouterRegion}"
                         read -r HostPID RouterPID HostInterface RouterInterface \
-                            < <(connect_one_l3_host_router "${GroupAS}" "${RouterRegion}" "${HostSuffix}")
+                            < <(connect_one_l3_host_router "${GroupAS}" "${RouterRegion}" "${HostSuffix}" "1000mbit" "5ms" "50ms")
 
                         # set default ip address and default gw in host
                         if [ "$GroupHasConfig" == "Config" ]; then
@@ -134,7 +134,7 @@ for ((k = 0; k < GroupNumber; k++)); do
                             subnet_host="$(subnet_host_router_add "${GroupAS}" "${i}" "host" "${j}")"
 
                             read -r pid1 pid2 < <(connect_two_interfaces_parallel "${GroupAS}"_"${RouterRegion}"router host"${j}" \
-                            "${GroupAS}"_"${RouterRegion}"host "${RouterRegion}"router"${j}" "100000" "5ms" "50ms" "${j}" \
+                            "${GroupAS}"_"${RouterRegion}"host "${RouterRegion}"router"${j}" "1000mbit" "5ms" "50ms" "${j}" \
                             "${subnet_host}" "${subnet_router%/*}")
                         done
                     fi     

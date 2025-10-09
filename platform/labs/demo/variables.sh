@@ -38,7 +38,7 @@ WEBSERVER_TZ="Europe/Zurich"
 # =============================================================================
 
 # default parameters for the links
-DEFAULT_THROUGHPUT=10mbit
+DEFAULT_THROUGHPUT=1000mbit
 DEFAULT_DELAY=10ms
 DEFAULT_BUFFER=50ms
 
