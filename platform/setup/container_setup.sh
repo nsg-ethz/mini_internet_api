@@ -193,7 +193,7 @@ for ((k = 0; k < group_numbers; k++)); do
                         --sysctl net.mpls.platform_labels=1048575 \
                         --cap-add=ALL \
                         --cap-drop=SYS_RESOURCE \
-                        --cpus=2 --pids-limit 1000 --hostname "${rname}""_router" \
+                        --cpus=2 --memory=512m --pids-limit 1000 --hostname "${rname}""_router" \
                         -v "${location}"/looking_glass.txt:/home/looking_glass.txt \
                         -v "${location}"/looking_glass_json.txt:/home/looking_glass_json.txt \
                         -v "${location}"/daemons:/etc/frr/daemons \
