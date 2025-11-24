@@ -136,7 +136,7 @@ for ((k = 0; k < group_numbers; k++)); do
 
                 if [[ $hname != vpn* ]]; then
                     docker run -itd --network='none' --dns="${subnet_dns%/*}" --cap-add=NET_ADMIN \
-                        --cpus=2 --pids-limit 1000 --hostname "${hname}" \
+                        --cpus=2 --memory=512m --pids-limit 1000 --hostname "${hname}" \
                         --name="${group_number}""_L2_""${l2name}""_""${hname}" \
                         --sysctl net.ipv4.icmp_ratelimit=0 \
                         --sysctl net.ipv4.icmp_echo_ignore_broadcasts=0 \
@@ -249,7 +249,7 @@ for ((k = 0; k < group_numbers; k++)); do
 
                     docker run -itd --network='none' --dns="${subnet_dns%/*}" \
                         --name="${container_name}" --cap-add=NET_ADMIN \
-                        --cpus=2 --pids-limit 1000 --hostname "${rname}""_host${extra}" \
+                        --cpus=2 --memory=512m --pids-limit 1000 --hostname "${rname}""_host${extra}" \
                         --sysctl net.ipv4.icmp_ratelimit=0 \
                         --sysctl net.ipv4.icmp_echo_ignore_broadcasts=0 \
                         --sysctl net.ipv6.conf.all.disable_ipv6=0 \
